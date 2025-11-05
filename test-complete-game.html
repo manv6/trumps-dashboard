@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Complete Game</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 600px; margin: 0 auto; }
+        .form-group { margin: 10px 0; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input, button { padding: 8px; margin: 5px 0; }
+        input[type="text"] { width: 300px; }
+        button { background: #007bff; color: white; border: none; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .result { margin: 20px 0; padding: 10px; border: 1px solid #ccc; background: #f9f9f9; }
+        .error { border-color: #dc3545; background: #f8d7da; color: #721c24; }
+        .success { border-color: #28a745; background: #d4edda; color: #155724; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎮 Test Complete Game Functionality</h1>
+        
+        <div class="form-group">
+            <label for="gameId">Game ID:</label>
+            <input type="text" id="gameId" placeholder="Enter game ID (e.g., ABC123DEF)" />
+        </div>
+        
+        <div class="form-group">
+            <label for="userId">User ID (Host):</label>
+            <input type="text" id="userId" placeholder="Enter user ID of the game host" />
+        </div>
+        
+        <button onclick="testCompleteGame()">Complete Game</button>
+        <button onclick="listGames()">List Available Games</button>
+        <button onclick="testGameHistory()">Test Game History</button>
+        
+        <div id="result" class="result" style="display:none;"></div>
+    </div>
+
+    <script>
+        async function testCompleteGame() {
+            const gameId = document.getElementById('gameId').value.trim();
+            const userId = document.getElementById('userId').value.trim();
+            const resultDiv = document.getElementById('result');
+            
+            if (!gameId || !userId) {
+                showResult('Please enter both Game ID and User ID', 'error');
+                return;
+            }
+            
+            try {
+                showResult('Completing game...', '');
+                
+                const response = await fetch(`http://localhost:5001/api/game/${gameId}/complete`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ userId: userId })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showResult(`✅ Success: ${data.message}<br>Final Scores: ${JSON.stringify(data.finalScores)}`, 'success');
+                } else {
+                    showResult(`❌ Error: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                showResult(`❌ Network Error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function listGames() {
+            try {
+                showResult('Loading games...', '');
+                
+                const response = await fetch('http://localhost:5001/api/games');
+                const data = await response.json();
+                
+                if (response.ok && data.games) {
+                    let result = '<h3>📋 Available Games:</h3>';
+                    if (data.games.length === 0) {
+                        result += '<p>No games found.</p>';
+                    } else {
+                        data.games.forEach(game => {
+                            result += `<div style="border:1px solid #ccc; margin:5px; padding:10px;">
+                                <strong>Game ID:</strong> ${game.gameId}<br>
+                                <strong>Host:</strong> ${game.hostUsername}<br>
+                                <strong>Players:</strong> ${game.playersCount}/${game.maxPlayers}<br>
+                                <strong>Status:</strong> ${game.isCompleted ? 'Completed' : game.isStarted ? 'In Progress' : 'Waiting'}<br>
+                                <button onclick="document.getElementById('gameId').value='${game.gameId}'">Use This Game ID</button>
+                            </div>`;
+                        });
+                    }
+                    showResult(result, 'success');
+                } else {
+                    showResult('❌ Failed to load games', 'error');
+                }
+            } catch (error) {
+                showResult(`❌ Network Error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testGameHistory() {
+            const userId = document.getElementById('userId').value.trim();
+            
+            if (!userId) {
+                showResult('Please enter User ID first', 'error');
+                return;
+            }
+            
+            try {
+                showResult('Loading game history...', '');
+                
+                const response = await fetch(`http://localhost:5001/api/games/history?userId=${userId}`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    let result = '<h3>📚 Game History:</h3>';
+                    if (data.length === 0) {
+                        result += '<p>No games in history.</p>';
+                    } else {
+                        data.forEach(game => {
+                            result += `<div style="border:1px solid #ccc; margin:5px; padding:10px;">
+                                <strong>Game ID:</strong> ${game.gameId}<br>
+                                <strong>Players:</strong> ${game.playerNames.join(', ')}<br>
+                                <strong>Status:</strong> ${game.isCompleted ? '✅ Completed' : game.isStarted ? '🔄 In Progress' : '⏳ Waiting'}<br>
+                                <strong>Participated:</strong> ${game.isParticipant ? '✅ Yes' : '👀 Observer'}<br>
+                                ${game.isParticipant && game.userScore !== null ? `<strong>Your Score:</strong> ${game.userScore} (Rank #${game.userRank})<br>` : ''}
+                                <strong>Date:</strong> ${new Date(game.createdAt).toLocaleString()}<br>
+                                ${game.finalResults ? `<strong>Final Results:</strong> ${JSON.stringify(game.finalResults)}<br>` : ''}
+                            </div>`;
+                        });
+                    }
+                    showResult(result, 'success');
+                } else {
+                    showResult(`❌ Error: ${data.error || 'Failed to load history'}`, 'error');
+                }
+            } catch (error) {
+                showResult(`❌ Network Error: ${error.message}`, 'error');
+            }
+        }
+        
+        function showResult(message, type) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = message;
+            resultDiv.className = 'result ' + type;
+            resultDiv.style.display = 'block';
+        }
+    </script>
+</body>
+</html>
