@@ -12,13 +12,16 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    origin: "http://localhost:3000",
+    origin: "*", // Allow all origins for development
     methods: ["GET", "POST"]
   }
 });
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: "*", // Allow all origins for development
+  credentials: true
+}));
 app.use(express.json());
 
 // MongoDB connection (with fallback to in-memory storage)
@@ -1042,6 +1045,7 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => {
+const HOST = process.env.HOST || '0.0.0.0';
+server.listen(PORT, HOST, () => {
   console.log(`Server running on port ${PORT}`);
 });

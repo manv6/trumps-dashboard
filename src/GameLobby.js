@@ -157,21 +157,64 @@ export default function GameLobby() {
   }, []);  // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <Container maxWidth="md">
-      <Paper sx={{ p: 4, mt: 4 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          <Typography variant="h4">
-            🎴 Game Lobby
-          </Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Typography variant="body1">
-              Welcome, <strong>{user.username}</strong>!
+    <Box sx={{ 
+      minHeight: '100vh',
+      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      py: { xs: 2, sm: 4 }
+    }}>
+      <Container maxWidth="md">
+        <Paper sx={{ 
+          p: { xs: 2, sm: 4 },
+          borderRadius: 3,
+          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+        }}>
+          <Box sx={{ 
+            display: 'flex', 
+            flexDirection: { xs: 'column', sm: 'row' },
+            justifyContent: 'space-between', 
+            alignItems: { xs: 'center', sm: 'center' }, 
+            mb: 3,
+            gap: { xs: 2, sm: 0 }
+          }}>
+            <Typography 
+              variant="h4"
+              sx={{
+                fontSize: { xs: '1.75rem', sm: '2.125rem' },
+                fontWeight: 700,
+                background: 'linear-gradient(45deg, #667eea, #764ba2)',
+                backgroundClip: 'text',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent'
+              }}
+            >
+              🎴 Game Lobby
             </Typography>
-            <Button variant="outlined" onClick={logout}>
-              Αποσύνδεση
-            </Button>
+            <Box sx={{ 
+              display: 'flex', 
+              flexDirection: { xs: 'column', sm: 'row' },
+              alignItems: 'center', 
+              gap: { xs: 1, sm: 2 },
+              textAlign: { xs: 'center', sm: 'left' }
+            }}>
+              <Typography 
+                variant="body1"
+                sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
+              >
+                Welcome, <strong>{user.username}</strong>!
+              </Typography>
+              <Button 
+                variant="outlined" 
+                onClick={logout}
+                size="small"
+                sx={{
+                  borderRadius: 2,
+                  fontWeight: 600
+                }}
+              >
+                Αποσύνδεση
+              </Button>
+            </Box>
           </Box>
-        </Box>
 
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
@@ -201,9 +244,20 @@ export default function GameLobby() {
 
         <Grid container spacing={3}>
           <Grid item xs={12} md={6}>
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
+            <Card sx={{ 
+              borderRadius: 3,
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+              height: '100%'
+            }}>
+              <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+                <Typography 
+                  variant="h6" 
+                  gutterBottom
+                  sx={{ 
+                    fontSize: { xs: '1.125rem', sm: '1.25rem' },
+                    fontWeight: 600
+                  }}
+                >
                   🎯 Create New Game
                 </Typography>
                 <Stack spacing={3}>
@@ -214,6 +268,11 @@ export default function GameLobby() {
                     onChange={(e) => setNumPlayers(Math.max(2, Math.min(8, Number(e.target.value))))}
                     inputProps={{ min: 2, max: 8 }}
                     fullWidth
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        borderRadius: 2
+                      }
+                    }}
                   />
                   <Button
                     variant="contained"
@@ -221,6 +280,16 @@ export default function GameLobby() {
                     onClick={handleCreateGame}
                     disabled={loading}
                     fullWidth
+                    sx={{
+                      py: { xs: 1.5, sm: 2 },
+                      fontSize: { xs: '1rem', sm: '1.125rem' },
+                      fontWeight: 600,
+                      borderRadius: 2,
+                      background: 'linear-gradient(45deg, #667eea, #764ba2)',
+                      '&:hover': {
+                        background: 'linear-gradient(45deg, #5a6fd8, #6a4190)',
+                      }
+                    }}
                   >
                     {loading ? 'Creating Game...' : 'Create Game'}
                   </Button>
@@ -230,9 +299,20 @@ export default function GameLobby() {
           </Grid>
 
           <Grid item xs={12} md={6}>
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
+            <Card sx={{ 
+              borderRadius: 3,
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+              height: '100%'
+            }}>
+              <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+                <Typography 
+                  variant="h6" 
+                  gutterBottom
+                  sx={{ 
+                    fontSize: { xs: '1.125rem', sm: '1.25rem' },
+                    fontWeight: 600
+                  }}
+                >
                   🚪 Join Existing Game
                 </Typography>
                 <Stack spacing={3}>
@@ -242,6 +322,11 @@ export default function GameLobby() {
                     onChange={(e) => setGameIdInput(e.target.value.toUpperCase())}
                     placeholder="Enter 8-character game code"
                     fullWidth
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        borderRadius: 2
+                      }
+                    }}
                   />
                   <Button
                     variant="contained"
@@ -249,6 +334,16 @@ export default function GameLobby() {
                     onClick={handleJoinGame}
                     disabled={loading || !gameIdInput.trim()}
                     fullWidth
+                    sx={{
+                      py: { xs: 1.5, sm: 2 },
+                      fontSize: { xs: '1rem', sm: '1.125rem' },
+                      fontWeight: 600,
+                      borderRadius: 2,
+                      background: 'linear-gradient(45deg, #667eea, #764ba2)',
+                      '&:hover': {
+                        background: 'linear-gradient(45deg, #5a6fd8, #6a4190)',
+                      }
+                    }}
                   >
                     {loading ? 'Joining Game...' : 'Join Game'}
                   </Button>
@@ -554,5 +649,6 @@ export default function GameLobby() {
         </Box>
       </Paper>
     </Container>
+    </Box>
   );
 }

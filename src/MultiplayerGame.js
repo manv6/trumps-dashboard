@@ -54,8 +54,14 @@ export default function MultiplayerGame({ gameId, initialGameData, onLeaveGame }
   const cellWidth = Math.max(55, Math.floor(900 / (numPlayers * 2)));
 
   useEffect(() => {
-    // Initialize socket connection
-    const newSocket = io('http://localhost:3001');
+    // Initialize socket connection with dynamic URL
+    const socketUrl = process.env.NODE_ENV === 'development' 
+      ? (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+          ? 'http://localhost:3002'
+          : `http://${window.location.hostname}:3002`)
+      : 'http://localhost:3002';
+    
+    const newSocket = io(socketUrl);
     
     newSocket.on('connect', () => {
       console.log('Connected to server');
@@ -209,37 +215,102 @@ export default function MultiplayerGame({ gameId, initialGameData, onLeaveGame }
 
   if (!connected) {
     return (
-      <Container maxWidth="xl">
-        <Paper sx={{ p: 4, mt: 4 }}>
-          <Typography variant="h5" align="center">
-            Connecting to game...
-          </Typography>
-        </Paper>
-      </Container>
+      <Box sx={{ 
+        minHeight: '100vh',
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        p: 2
+      }}>
+        <Container maxWidth="sm">
+          <Paper sx={{ 
+            p: { xs: 3, sm: 4 },
+            borderRadius: 3,
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+            textAlign: 'center'
+          }}>
+            <Typography 
+              variant="h5" 
+              sx={{ 
+                fontSize: { xs: '1.25rem', sm: '1.5rem' },
+                fontWeight: 600,
+                mb: 2
+              }}
+            >
+              🎴 Connecting to game...
+            </Typography>
+            <Typography 
+              variant="body2" 
+              color="text.secondary"
+              sx={{ mb: 2 }}
+            >
+              Game ID: {gameId}
+            </Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+              <div>🔄</div>
+            </Box>
+          </Paper>
+        </Container>
+      </Box>
     );
   }
 
   return (
-    <Container maxWidth="xl">
-      <Paper id="dashboard-content" sx={{ p: 4, mt: 4 }}>
-        <Stack spacing={3}>
-          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-            <Box>
-              <Typography variant="h4" align="left">
-                🎴 Trumps – Multiplayer Game
-              </Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 1 }}>
-                <Chip 
-                  label={`Game ID: ${gameId}`} 
-                  variant="outlined" 
-                  color="primary"
-                />
-                <Chip 
-                  label={connected ? "🟢 Connected" : "🔴 Disconnected"} 
-                  variant="outlined"
-                />
+    <Box sx={{ 
+      minHeight: '100vh',
+      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      py: { xs: 2, sm: 4 }
+    }}>
+      <Container maxWidth="xl">
+        <Paper id="dashboard-content" sx={{ 
+          p: { xs: 2, sm: 4 },
+          borderRadius: 3,
+          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+        }}>
+          <Stack spacing={3}>
+            <Box sx={{ 
+              display: "flex", 
+              flexDirection: { xs: 'column', sm: 'row' },
+              justifyContent: "space-between", 
+              alignItems: { xs: 'center', sm: 'flex-start' },
+              gap: { xs: 2, sm: 0 }
+            }}>
+              <Box sx={{ textAlign: { xs: 'center', sm: 'left' } }}>
+                <Typography 
+                  variant="h4" 
+                  sx={{ 
+                    fontSize: { xs: '1.5rem', sm: '2.125rem' },
+                    fontWeight: 700,
+                    background: 'linear-gradient(45deg, #667eea, #764ba2)',
+                    backgroundClip: 'text',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent'
+                  }}
+                >
+                  🎴 Trumps – Multiplayer Game
+                </Typography>
+                <Box sx={{ 
+                  display: 'flex', 
+                  flexDirection: { xs: 'column', sm: 'row' },
+                  alignItems: 'center', 
+                  gap: 1, 
+                  mt: 1 
+                }}>
+                  <Chip 
+                    label={`Game ID: ${gameId}`} 
+                    variant="outlined" 
+                    color="primary"
+                    size="small"
+                  />
+                  <Chip 
+                    label={connected ? "🟢 Connected" : "🔴 Disconnected"} 
+                    variant="outlined"
+                    size="small"
+                    color={connected ? "success" : "error"}
+                  />
+                </Box>
               </Box>
-            </Box>
             
             {/* Reference Guide */}
             <Paper 
@@ -415,7 +486,12 @@ export default function MultiplayerGame({ gameId, initialGameData, onLeaveGame }
             </Box>
           </Box>
 
-          <Box sx={{ overflowX: "auto" }} data-table-container>
+          <Box sx={{ 
+            overflowX: "auto",
+            border: '1px solid #e0e0e0',
+            borderRadius: 2,
+            backgroundColor: '#fafafa'
+          }} data-table-container>
             <Table size="small">
               <TableHead>
                 <TableRow sx={{ visibility: "hidden" }}>
@@ -717,26 +793,56 @@ export default function MultiplayerGame({ gameId, initialGameData, onLeaveGame }
             </Table>
           </Box>
 
-          <Stack direction="row" spacing={2}>
+          <Stack 
+            direction={{ xs: 'column', sm: 'row' }} 
+            spacing={2}
+            sx={{ mt: 3 }}
+          >
             {isHost && !isGameCompleted && (
               <Button 
                 variant="contained" 
                 color="success" 
                 onClick={handleCompleteGame}
                 disabled={completingGame}
+                fullWidth={{ xs: true, sm: false }}
+                sx={{
+                  py: { xs: 1.5, sm: 1 },
+                  borderRadius: 2,
+                  fontWeight: 600
+                }}
               >
                 {completingGame ? 'Completing...' : 'Complete Game'}
               </Button>
             )}
-            <Button variant="outlined" color="error" onClick={handleResetGame}>
+            <Button 
+              variant="outlined" 
+              color="error" 
+              onClick={handleResetGame}
+              fullWidth={{ xs: true, sm: false }}
+              sx={{
+                py: { xs: 1.5, sm: 1 },
+                borderRadius: 2,
+                fontWeight: 600
+              }}
+            >
               Reset Game
             </Button>
-            <Button variant="outlined" onClick={onLeaveGame}>
+            <Button 
+              variant="outlined" 
+              onClick={onLeaveGame}
+              fullWidth={{ xs: true, sm: false }}
+              sx={{
+                py: { xs: 1.5, sm: 1 },
+                borderRadius: 2,
+                fontWeight: 600
+              }}
+            >
               Leave Game
             </Button>
           </Stack>
         </Stack>
       </Paper>
     </Container>
+    </Box>
   );
 }

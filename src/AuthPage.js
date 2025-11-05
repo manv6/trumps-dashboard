@@ -78,20 +78,62 @@ export default function AuthPage() {
   };
 
   return (
-    <Container maxWidth="sm">
-      <Paper sx={{ p: 4, mt: 8 }}>
-        <Typography variant="h4" align="center" gutterBottom>
-          🎴 Trumps Dashboard
-        </Typography>
-        
-        <Typography variant="body1" align="center" color="text.secondary" sx={{ mb: 3 }}>
-          Join or create multiplayer Trump card games
-        </Typography>
+    <Box sx={{ 
+      minHeight: '100vh',
+      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      p: 2
+    }}>
+      <Container maxWidth="sm">
+        <Paper sx={{ 
+          p: { xs: 3, sm: 4 },
+          borderRadius: 3,
+          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+        }}>
+          <Typography 
+            variant="h4" 
+            align="center" 
+            gutterBottom
+            sx={{ 
+              fontSize: { xs: '1.75rem', sm: '2.125rem' },
+              fontWeight: 700,
+              background: 'linear-gradient(45deg, #667eea, #764ba2)',
+              backgroundClip: 'text',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent'
+            }}
+          >
+            🎴 Trumps Dashboard
+          </Typography>
+          
+          <Typography 
+            variant="body1" 
+            align="center" 
+            color="text.secondary" 
+            sx={{ 
+              mb: 3,
+              fontSize: { xs: '0.875rem', sm: '1rem' }
+            }}
+          >
+            Join or create multiplayer Trump card games
+          </Typography>
 
-        <Tabs value={tab} onChange={(e, newValue) => setTab(newValue)} centered>
-          <Tab label="Σύνδεση" />
-          <Tab label="Εγγραφή" />
-        </Tabs>
+          <Tabs 
+            value={tab} 
+            onChange={(e, newValue) => setTab(newValue)} 
+            centered
+            sx={{
+              '& .MuiTab-root': {
+                fontSize: { xs: '0.875rem', sm: '1rem' },
+                fontWeight: 600
+              }
+            }}
+          >
+            <Tab label="Σύνδεση" />
+            <Tab label="Εγγραφή" />
+          </Tabs>
 
         {error && (
           <Alert severity="error" sx={{ mt: 2 }}>
@@ -124,6 +166,16 @@ export default function AuthPage() {
                 size="large"
                 disabled={loading}
                 fullWidth
+                sx={{
+                  py: { xs: 1.5, sm: 2 },
+                  fontSize: { xs: '1rem', sm: '1.125rem' },
+                  fontWeight: 600,
+                  borderRadius: 2,
+                  background: 'linear-gradient(45deg, #667eea, #764ba2)',
+                  '&:hover': {
+                    background: 'linear-gradient(45deg, #5a6fd8, #6a4190)',
+                  }
+                }}
               >
                 {loading ? 'Σύνδεση...' : 'Σύνδεση'}
               </Button>
@@ -171,6 +223,16 @@ export default function AuthPage() {
                 size="large"
                 disabled={loading}
                 fullWidth
+                sx={{
+                  py: { xs: 1.5, sm: 2 },
+                  fontSize: { xs: '1rem', sm: '1.125rem' },
+                  fontWeight: 600,
+                  borderRadius: 2,
+                  background: 'linear-gradient(45deg, #667eea, #764ba2)',
+                  '&:hover': {
+                    background: 'linear-gradient(45deg, #5a6fd8, #6a4190)',
+                  }
+                }}
               >
                 {loading ? 'Εγγραφή...' : 'Εγγραφή'}
               </Button>
@@ -179,5 +241,6 @@ export default function AuthPage() {
         </TabPanel>
       </Paper>
     </Container>
+    </Box>
   );
 }
