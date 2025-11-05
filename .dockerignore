@@ -1,0 +1,47 @@
+# Ignore Docker-related files from general linting
+**/Dockerfile*
+**/docker-compose*.yml
+**/mongo-init.js
+
+# Node modules
+node_modules/
+**/node_modules/
+
+# Build outputs
+build/
+dist/
+**/build/
+**/dist/
+
+# Environment files
+.env*
+**/.env*
+
+# Logs
+*.log
+**/logs/
+
+# OS files
+.DS_Store
+**/.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+
+# Git
+.git/
+.gitignore
+
+# Backup and temp files
+backups/
+*.tmp
+*.temp
+
+# Coverage reports
+coverage/
+**/coverage/
+
+# Shell scripts
+*.sh

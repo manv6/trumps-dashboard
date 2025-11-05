@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  # Production Frontend with Nginx
+  client:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: trumps-client-prod
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - server
+    networks:
+      - trumps-network
+
+  # Production Backend
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: trumps-server-prod
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      MONGODB_URI: mongodb://admin:password123@mongodb:27017/trumps-dashboard?authSource=admin
+      JWT_SECRET: ${JWT_SECRET:-production-jwt-secret-change-me}
+      CLIENT_URL: http://localhost
+    depends_on:
+      - mongodb
+    networks:
+      - trumps-network
+
+  # MongoDB Database
+  mongodb:
+    image: mongo:7-jammy
+    container_name: trumps-mongodb-prod
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-password123}
+      MONGO_INITDB_DATABASE: trumps-dashboard
+    volumes:
+      - mongodb_prod_data:/data/db
+      - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    networks:
+      - trumps-network
+
+volumes:
+  mongodb_prod_data:
+
+networks:
+  trumps-network:
+    driver: bridge

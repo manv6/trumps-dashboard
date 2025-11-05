@@ -55,7 +55,7 @@ export default function MultiplayerGame({ gameId, initialGameData, onLeaveGame }
 
   useEffect(() => {
     // Initialize socket connection
-    const newSocket = io('http://localhost:5001');
+    const newSocket = io('http://localhost:3001');
     
     newSocket.on('connect', () => {
       console.log('Connected to server');

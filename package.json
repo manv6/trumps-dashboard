@@ -25,7 +25,15 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "deploy:dev": "./dev.sh",
+    "deploy:staging": "./deploy.sh staging",
+    "deploy:prod": "./build-prod.sh",
+    "docker:dev": "./docker-deploy.sh dev",
+    "docker:prod": "./docker-deploy.sh prod",
+    "health": "./health-check.sh",
+    "backup": "./backup.sh",
+    "stop": "./stop.sh"
   },
   "eslintConfig": {
     "extends": [

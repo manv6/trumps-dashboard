@@ -51,7 +51,7 @@
             try {
                 showResult('Completing game...', '');
                 
-                const response = await fetch(`http://localhost:5001/api/game/${gameId}/complete`, {
+                const response = await fetch(`http://localhost:3001/api/game/${gameId}/complete`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -75,7 +75,7 @@
             try {
                 showResult('Loading games...', '');
                 
-                const response = await fetch('http://localhost:5001/api/games');
+                const response = await fetch('http://localhost:3001/api/games');
                 const data = await response.json();
                 
                 if (response.ok && data.games) {
@@ -113,7 +113,7 @@
             try {
                 showResult('Loading game history...', '');
                 
-                const response = await fetch(`http://localhost:5001/api/games/history?userId=${userId}`);
+                const response = await fetch(`http://localhost:3001/api/games/history?userId=${userId}`);
                 const data = await response.json();
                 
                 if (response.ok) {

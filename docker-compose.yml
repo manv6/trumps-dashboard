@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  # MongoDB Database
+  mongodb:
+    image: mongo:7-jammy
+    container_name: trumps-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password123
+      MONGO_INITDB_DATABASE: trumps-dashboard
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    networks:
+      - trumps-network
+
+  # Backend Server
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: trumps-server
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      PORT: 3001
+      MONGODB_URI: mongodb://admin:password123@mongodb:27017/trumps-dashboard?authSource=admin
+      JWT_SECRET: dev-jwt-secret-change-in-production
+      CLIENT_URL: http://localhost:3000
+    ports:
+      - "3001:3001"
+    depends_on:
+      - mongodb
+    volumes:
+      - ./server:/app
+      - /app/node_modules
+    networks:
+      - trumps-network
+    command: npm run dev
+
+  # Frontend Client (Development)
+  client:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: trumps-client
+    restart: unless-stopped
+    environment:
+      REACT_APP_API_URL: http://localhost:3001
+      REACT_APP_SOCKET_URL: http://localhost:3001
+      CHOKIDAR_USEPOLLING: true
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    networks:
+      - trumps-network
+    command: npm start
+
+volumes:
+  mongodb_data:
+
+networks:
+  trumps-network:
+    driver: bridge

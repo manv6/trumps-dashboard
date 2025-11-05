@@ -1,0 +1,40 @@
+# Build directories
+build/
+dist/
+node_modules/
+
+# MongoDB shell scripts (run in MongoDB context, not Node.js)
+mongo-init.js
+*.mongo.js
+
+# Docker files
+Dockerfile*
+docker-compose*.yml
+
+# Shell scripts
+*.sh
+
+# Environment files
+.env*
+*.env
+
+# Logs
+*.log
+logs/
+
+# Backup files
+backups/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+
+# Test coverage
+coverage/
+
+# Static files
+public/static/
