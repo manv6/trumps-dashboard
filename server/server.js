@@ -1046,6 +1046,13 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 5000;
 const HOST = process.env.HOST || '0.0.0.0';
-server.listen(PORT, HOST, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+
+// For Vercel serverless functions
+if (process.env.VERCEL) {
+  module.exports = app;
+} else {
+  // For local development
+  server.listen(PORT, HOST, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+}

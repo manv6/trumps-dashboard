@@ -15,7 +15,7 @@ const API_BASE_URL = process.env.NODE_ENV === 'development'
   ? (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
       ? 'http://localhost:3002/api'
       : `http://${window.location.hostname}:3002/api`)
-  : 'http://localhost:3002/api';
+  : `${window.location.origin}/api`;
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);

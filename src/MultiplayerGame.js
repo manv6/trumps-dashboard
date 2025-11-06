@@ -59,7 +59,7 @@ export default function MultiplayerGame({ gameId, initialGameData, onLeaveGame }
       ? (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
           ? 'http://localhost:3002'
           : `http://${window.location.hostname}:3002`)
-      : 'http://localhost:3002';
+      : window.location.origin;
     
     const newSocket = io(socketUrl);
     

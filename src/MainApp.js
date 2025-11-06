@@ -34,7 +34,7 @@ function AppContent() {
 export default function MainApp() {
   return (
     <AuthProvider>
-      <Router basename="/trumps">
+      <Router>
         <AppContent />
       </Router>
     </AuthProvider>
