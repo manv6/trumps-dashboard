@@ -1,34 +1,26 @@
-# Client Dockerfile
-FROM node:20-alpine as build
+FROM node:20-alpine
 
-# Update packages for security
-RUN apk update && apk upgrade && apk add --no-cache dumb-init
 WORKDIR /app
 
-# Copy package files
+# Copy package files for both frontend and server
 COPY package*.json ./
+COPY server/package*.json ./server/
 
 # Install dependencies
 RUN npm ci --only=production
+RUN cd server && npm ci --only=production
 
 # Copy source code
-COPY public/ ./public/
-COPY src/ ./src/
+COPY . .
 
-# Build the application
+# Build React app
 RUN npm run build
 
-# Production stage
-FROM nginx:alpine
-
-# Copy built files
-COPY --from=build /app/build /usr/share/nginx/html
-
-# Copy nginx configuration
-COPY nginx.conf /etc/nginx/nginx.conf
+# Set environment to production
+ENV NODE_ENV=production
 
 # Expose port
-EXPOSE 80
+EXPOSE 5000
 
-# Start nginx
-CMD ["nginx", "-g", "daemon off;"]
+# Start the server
+CMD ["npm", "run", "start:production"]

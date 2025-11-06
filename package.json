@@ -2,7 +2,7 @@
   "name": "trumps-dashboard",
   "version": "0.1.0",
   "private": true,
-  "homepage": ".",
+  "homepage": "/",
   "dependencies": {
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
@@ -35,7 +35,8 @@
     "backup": "./backup.sh",
     "stop": "./stop.sh",
     "vercel:build": "npm run build",
-    "heroku:build": "npm run build && cp -r build/* . && node server/server.js"
+    "heroku:build": "npm run build && cp -r build/* . && node server/server.js",
+    "start:production": "cd server && NODE_ENV=production node server.js"
   },
   "eslintConfig": {
     "extends": [

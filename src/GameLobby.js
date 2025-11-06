@@ -101,22 +101,34 @@ export default function GameLobby() {
 
   const loadGames = async () => {
     setGamesLoading(true);
-    const result = await listGames();
-    if (result.success) {
-      setAvailableGames(result.games);
-    } else {
-      setError('Failed to load games: ' + result.error);
+    try {
+      const result = await listGames();
+      if (result.success) {
+        setAvailableGames(result.games || []);
+      } else {
+        setAvailableGames([]);
+        setError('Failed to load games: ' + result.error);
+      }
+    } catch (error) {
+      setAvailableGames([]);
+      setError('API not available - running in frontend-only mode');
     }
     setGamesLoading(false);
   };
 
   const loadAllGamesHistory = async () => {
     setHistoryLoading(true);
-    const result = await getAllGamesHistory();
-    if (result.success) {
-      setAllGamesHistory(result.games);
-    } else {
-      setError('Failed to load history: ' + result.error);
+    try {
+      const result = await getAllGamesHistory();
+      if (result.success) {
+        setAllGamesHistory(result.games || []);
+      } else {
+        setAllGamesHistory([]);
+        setError('Failed to load history: ' + result.error);
+      }
+    } catch (error) {
+      setAllGamesHistory([]);
+      setError('API not available - running in frontend-only mode');
     }
     setHistoryLoading(false);
   };
@@ -379,7 +391,7 @@ export default function GameLobby() {
                 </Button>
               </Box>
               
-              {availableGames.length === 0 ? (
+              {(!availableGames || availableGames.length === 0) ? (
                 <Paper sx={{ p: 3, textAlign: 'center' }}>
                   <Typography color="text.secondary">
                     No active games at the moment. Create a new game to get started!
@@ -402,7 +414,7 @@ export default function GameLobby() {
                           </TableRow>
                         </TableHead>
                         <TableBody>
-                          {availableGames.map((game) => {
+                          {(availableGames || []).map((game) => {
                             // Check if current user is already in this game
                             const isUserInGame = game.playerIds && game.playerIds.includes(user.id);
                             
@@ -485,7 +497,7 @@ export default function GameLobby() {
                   {/* Mobile Card View */}
                   <Box sx={{ display: { xs: 'block', md: 'none' } }}>
                     <Stack spacing={2}>
-                      {availableGames.map((game) => {
+                      {(availableGames || []).map((game) => {
                         const isUserInGame = game.playerIds && game.playerIds.includes(user.id);
                         
                         return (
@@ -582,7 +594,7 @@ export default function GameLobby() {
                 </Button>
               </Box>
               
-              {allGamesHistory.length === 0 ? (
+              {(!allGamesHistory || allGamesHistory.length === 0) ? (
                 <Paper sx={{ p: 3, textAlign: 'center' }}>
                   <Typography color="text.secondary">
                     No games in history yet. Start playing to see games here!
@@ -605,7 +617,7 @@ export default function GameLobby() {
                           </TableRow>
                         </TableHead>
                         <TableBody>
-                          {allGamesHistory.map((game) => (
+                          {(allGamesHistory || []).map((game) => (
                             <TableRow key={game.gameId} hover>
                               <TableCell>
                                 <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 'bold' }}>
@@ -663,7 +675,7 @@ export default function GameLobby() {
                   {/* Mobile Card View */}
                   <Box sx={{ display: { xs: 'block', md: 'none' } }}>
                     <Stack spacing={2}>
-                      {allGamesHistory.map((game) => (
+                      {(allGamesHistory || []).map((game) => (
                         <Card key={game.gameId} sx={{ borderRadius: 2 }}>
                           <CardContent sx={{ p: 2 }}>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>

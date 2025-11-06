@@ -6,6 +6,7 @@ const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
+const path = require('path');
 require('dotenv').config();
 
 const app = express();
@@ -23,6 +24,11 @@ app.use(cors({
   credentials: true
 }));
 app.use(express.json());
+
+// Serve static files from React build (for production)
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(path.join(__dirname, '../build')));
+}
 
 // MongoDB connection (with fallback to in-memory storage)
 let useDatabase = false;
@@ -1043,6 +1049,18 @@ io.on('connection', (socket) => {
     }
   });
 });
+
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+});
+
+// Catch-all handler: send back React's index.html file for production
+if (process.env.NODE_ENV === 'production') {
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../build/index.html'));
+  });
+}
 
 const PORT = process.env.PORT || 5000;
 const HOST = process.env.HOST || '0.0.0.0';
