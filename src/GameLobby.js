@@ -386,38 +386,41 @@ export default function GameLobby() {
                   </Typography>
                 </Paper>
               ) : (
-                <TableContainer component={Paper}>
-                  <Table size="small" aria-label="active games">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell><strong>Game ID</strong></TableCell>
-                        <TableCell><strong>Host</strong></TableCell>
-                        <TableCell><strong>Players</strong></TableCell>
-                        <TableCell><strong>Status</strong></TableCell>
-                        <TableCell><strong>Round</strong></TableCell>
-                        <TableCell><strong>Action</strong></TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {availableGames.map((game) => {
-                        // Check if current user is already in this game
-                        const isUserInGame = game.playerIds && game.playerIds.includes(user.id);
-                        
-                        return (
-                          <TableRow key={game.gameId} hover>
-                            <TableCell>
-                              <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 'bold' }}>
-                                {game.gameId}
-                                {isUserInGame && (
-                                  <Chip 
-                                    label="YOU'RE HERE" 
-                                    color="primary" 
-                                    size="small" 
-                                    sx={{ ml: 1, fontSize: '0.7em' }}
-                                  />
-                                )}
-                              </Typography>
-                            </TableCell>
+                <div>
+                  {/* Desktop Table View */}
+                  <Box sx={{ display: { xs: 'none', md: 'block' } }}>
+                    <TableContainer component={Paper}>
+                      <Table size="small" aria-label="active games">
+                        <TableHead>
+                          <TableRow>
+                            <TableCell><strong>Game ID</strong></TableCell>
+                            <TableCell><strong>Host</strong></TableCell>
+                            <TableCell><strong>Players</strong></TableCell>
+                            <TableCell><strong>Status</strong></TableCell>
+                            <TableCell><strong>Round</strong></TableCell>
+                            <TableCell><strong>Action</strong></TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {availableGames.map((game) => {
+                            // Check if current user is already in this game
+                            const isUserInGame = game.playerIds && game.playerIds.includes(user.id);
+                            
+                            return (
+                              <TableRow key={game.gameId} hover>
+                                <TableCell>
+                                  <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 'bold' }}>
+                                    {game.gameId}
+                                    {isUserInGame && (
+                                      <Chip 
+                                        label="YOU'RE HERE" 
+                                        color="primary" 
+                                        size="small" 
+                                        sx={{ ml: 1, fontSize: '0.7em' }}
+                                      />
+                                    )}
+                                  </Typography>
+                                </TableCell>
                             <TableCell>
                               <Typography variant="body2">
                                 {game.hostUsername}
@@ -477,6 +480,87 @@ export default function GameLobby() {
                     </TableBody>
                   </Table>
                 </TableContainer>
+                  </Box>
+
+                  {/* Mobile Card View */}
+                  <Box sx={{ display: { xs: 'block', md: 'none' } }}>
+                    <Stack spacing={2}>
+                      {availableGames.map((game) => {
+                        const isUserInGame = game.playerIds && game.playerIds.includes(user.id);
+                        
+                        return (
+                          <Card key={game.gameId} sx={{ 
+                            borderRadius: 2,
+                            border: isUserInGame ? '2px solid #1976d2' : '1px solid #e0e0e0'
+                          }}>
+                            <CardContent sx={{ p: 2 }}>
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                                <Box>
+                                  <Typography variant="h6" sx={{ fontFamily: 'monospace', fontWeight: 'bold', fontSize: '1rem' }}>
+                                    {game.gameId}
+                                  </Typography>
+                                  {isUserInGame && (
+                                    <Chip 
+                                      label="YOU'RE HERE" 
+                                      color="primary" 
+                                      size="small" 
+                                      sx={{ mt: 0.5 }}
+                                    />
+                                  )}
+                                </Box>
+                                <Chip 
+                                  label={game.status || 'waiting'} 
+                                  color={game.status === 'waiting' ? 'warning' : 'success'}
+                                  size="small"
+                                />
+                              </Box>
+                              
+                              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, mb: 2 }}>
+                                <Typography variant="body2" color="text.secondary">
+                                  <strong>Host:</strong> {game.host}
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                  <strong>Players:</strong> {game.players}/{game.maxPlayers}
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                  <strong>Round:</strong> {game.currentRound || 0}
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                  <strong>Available:</strong> {game.spotsAvailable}
+                                </Typography>
+                              </Box>
+                              
+                              <Button
+                                variant={isUserInGame ? "contained" : "outlined"}
+                                color="primary"
+                                size="small"
+                                fullWidth
+                                disabled={!isUserInGame && (game.spotsAvailable === 0 || (isInGame && !isUserInGame))}
+                                onClick={() => {
+                                  if (isUserInGame) {
+                                    navigate(`/game/${game.gameId}`);
+                                  } else {
+                                    setGameIdInput(game.gameId);
+                                    handleJoinGame();
+                                  }
+                                }}
+                                sx={{ 
+                                  borderRadius: 2,
+                                  py: 1,
+                                  fontWeight: 600
+                                }}
+                              >
+                                {isUserInGame ? 'Enter Game' : 
+                                 game.spotsAvailable === 0 ? 'Full' : 
+                                 (isInGame && !isUserInGame) ? 'In Other Game' : 'Join'}
+                              </Button>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                    </Stack>
+                  </Box>
+                </div>
               )}
             </Box>
           )}
@@ -505,81 +589,139 @@ export default function GameLobby() {
                   </Typography>
                 </Paper>
               ) : (
-                <TableContainer component={Paper}>
-                  <Table size="small" aria-label="all games history">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell><strong>Game ID</strong></TableCell>
-                        <TableCell><strong>Players</strong></TableCell>
-                        <TableCell><strong>Status</strong></TableCell>
-                        <TableCell><strong>Participation</strong></TableCell>
-                        <TableCell><strong>Date</strong></TableCell>
-                        <TableCell><strong>Action</strong></TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
+                <div>
+                  {/* Desktop Table View */}
+                  <Box sx={{ display: { xs: 'none', md: 'block' } }}>
+                    <TableContainer component={Paper}>
+                      <Table size="small" aria-label="all games history">
+                        <TableHead>
+                          <TableRow>
+                            <TableCell><strong>Game ID</strong></TableCell>
+                            <TableCell><strong>Players</strong></TableCell>
+                            <TableCell><strong>Status</strong></TableCell>
+                            <TableCell><strong>Participation</strong></TableCell>
+                            <TableCell><strong>Date</strong></TableCell>
+                            <TableCell><strong>Action</strong></TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {allGamesHistory.map((game) => (
+                            <TableRow key={game.gameId} hover>
+                              <TableCell>
+                                <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 'bold' }}>
+                                  {game.gameId}
+                                </Typography>
+                              </TableCell>
+                              <TableCell>{game.playerNames}</TableCell>
+                              <TableCell>
+                                <Chip 
+                                  label={game.isCompleted ? 'Completed' : 'In Progress'} 
+                                  color={game.isCompleted ? 'success' : 'warning'}
+                                  size="small"
+                                />
+                              </TableCell>
+                              <TableCell>
+                                <Chip 
+                                  label={game.isParticipant ? 'Participant' : 'Observer'} 
+                                  color={game.isParticipant ? 'primary' : 'default'}
+                                  size="small"
+                                />
+                              </TableCell>
+                              <TableCell>
+                                <Typography variant="body2" color="text.secondary">
+                                  {new Date(game.createdAt).toLocaleDateString()}
+                                </Typography>
+                              </TableCell>
+                              <TableCell>
+                                <Button
+                                  variant="outlined"
+                                  color="primary"
+                                  size="small"
+                                  onClick={() => {
+                                    if (game.isCompleted && game.finalResults) {
+                                      setSelectedGameResults(game.finalResults);
+                                      setResultsDialogOpen(true);
+                                    } else {
+                                      navigate(`/game/${game.gameId}`);
+                                    }
+                                  }}
+                                  sx={{ minWidth: '80px' }}
+                                >
+                                  {game.isCompleted 
+                                    ? (game.finalResults ? 'View Results' : 'View Game')
+                                    : (game.isParticipant ? 'Rejoin Game' : 'View Game')
+                                  }
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  </Box>
+
+                  {/* Mobile Card View */}
+                  <Box sx={{ display: { xs: 'block', md: 'none' } }}>
+                    <Stack spacing={2}>
                       {allGamesHistory.map((game) => (
-                        <TableRow key={game.gameId} hover>
-                          <TableCell>
-                            <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 'bold' }}>
-                              {game.gameId}
-                            </Typography>
-                          </TableCell>
-                          <TableCell>
-                            <Typography variant="body2">
-                              {game.playerNames.join(', ')}
-                            </Typography>
-                          </TableCell>
-                          <TableCell>
-                            <Chip 
-                              label={game.isCompleted ? 'Completed' : game.isStarted ? 'In Progress' : 'Waiting'}
-                              color={game.isCompleted ? 'default' : game.isStarted ? 'warning' : 'success'}
-                              size="small"
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Chip 
-                              label={game.isParticipant ? '✅ Participated' : '👀 Observer'}
-                              color={game.isParticipant ? 'success' : 'default'}
-                              size="small"
-                              variant={game.isParticipant ? 'filled' : 'outlined'}
-                            />
-                            {game.isParticipant && game.isCompleted && game.userRank && (
-                              <Typography variant="caption" sx={{ display: 'block', mt: 0.5 }}>
-                                Rank: #{game.userRank} | Score: {game.userScore}
+                        <Card key={game.gameId} sx={{ borderRadius: 2 }}>
+                          <CardContent sx={{ p: 2 }}>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                              <Typography variant="h6" sx={{ fontFamily: 'monospace', fontWeight: 'bold', fontSize: '1rem' }}>
+                                {game.gameId}
                               </Typography>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <Typography variant="body2">
-                              {new Date(game.createdAt).toLocaleDateString()}
+                              <Box sx={{ display: 'flex', gap: 1, flexDirection: 'column', alignItems: 'flex-end' }}>
+                                <Chip 
+                                  label={game.isCompleted ? 'Completed' : 'In Progress'} 
+                                  color={game.isCompleted ? 'success' : 'warning'}
+                                  size="small"
+                                />
+                                <Chip 
+                                  label={game.isParticipant ? 'Participant' : 'Observer'} 
+                                  color={game.isParticipant ? 'primary' : 'default'}
+                                  size="small"
+                                />
+                              </Box>
+                            </Box>
+                            
+                            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                              <strong>Players:</strong> {game.playerNames}
                             </Typography>
-                          </TableCell>
-                          <TableCell>
+                            
+                            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                              <strong>Date:</strong> {new Date(game.createdAt).toLocaleDateString()}
+                            </Typography>
+                            
                             <Button
                               variant="outlined"
+                              color="primary"
                               size="small"
+                              fullWidth
                               onClick={() => {
-                                if (game.finalResults && game.isCompleted) {
+                                if (game.isCompleted && game.finalResults) {
                                   setSelectedGameResults(game.finalResults);
                                   setResultsDialogOpen(true);
                                 } else {
                                   navigate(`/game/${game.gameId}`);
                                 }
                               }}
-                              sx={{ minWidth: '80px' }}
+                              sx={{ 
+                                borderRadius: 2,
+                                py: 1,
+                                fontWeight: 600
+                              }}
                             >
                               {game.isCompleted 
                                 ? (game.finalResults ? 'View Results' : 'View Game')
                                 : (game.isParticipant ? 'Rejoin Game' : 'View Game')
                               }
                             </Button>
-                          </TableCell>
-                        </TableRow>
+                          </CardContent>
+                        </Card>
                       ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
+                    </Stack>
+                  </Box>
+                </div>
               )}
             </Box>
           )}

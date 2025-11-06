@@ -33,7 +33,9 @@
     "docker:prod": "./docker-deploy.sh prod",
     "health": "./health-check.sh",
     "backup": "./backup.sh",
-    "stop": "./stop.sh"
+    "stop": "./stop.sh",
+    "vercel:build": "npm run build",
+    "heroku:build": "npm run build && cp -r build/* . && node server/server.js"
   },
   "eslintConfig": {
     "extends": [

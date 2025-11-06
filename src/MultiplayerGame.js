@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Container, Paper, Stack, Button, Typography,
   Table, TableHead, TableRow, TableCell, TableBody,
-  TextField, Box, Alert, Chip, Avatar
+  TextField, Box, Alert, Chip, Avatar, Card, CardContent
 } from '@mui/material';
 import io from 'socket.io-client';
 import { useAuth } from './AuthContext';
@@ -432,7 +432,7 @@ export default function MultiplayerGame({ gameId, initialGameData, onLeaveGame }
               zIndex: 10,
               boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
               borderBottom: "2px solid #1976d2",
-              display: "table",
+              display: { xs: 'none', lg: 'table' },
               width: "100%",
               tableLayout: "fixed"
             }}
@@ -486,12 +486,14 @@ export default function MultiplayerGame({ gameId, initialGameData, onLeaveGame }
             </Box>
           </Box>
 
-          <Box sx={{ 
-            overflowX: "auto",
-            border: '1px solid #e0e0e0',
-            borderRadius: 2,
-            backgroundColor: '#fafafa'
-          }} data-table-container>
+          {/* Desktop Game Table */}
+          <Box sx={{ display: { xs: 'none', lg: 'block' } }}>
+            <Box sx={{ 
+              overflowX: "auto",
+              border: '1px solid #e0e0e0',
+              borderRadius: 2,
+              backgroundColor: '#fafafa'
+            }} data-table-container>
             <Table size="small">
               <TableHead>
                 <TableRow sx={{ visibility: "hidden" }}>
@@ -753,32 +755,180 @@ export default function MultiplayerGame({ gameId, initialGameData, onLeaveGame }
               </TableBody>
             </Table>
           </Box>
+          </Box>
+
+          {/* Mobile Game View */}
+          <Box sx={{ display: { xs: 'block', lg: 'none' } }}>
+            <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+              📊 Game Progress
+            </Typography>
+            <Stack spacing={2}>
+              {rounds.map((cards, roundIdx) => {
+                // Calculate the same player indices as desktop table
+                const firstPlayerIdx = roundIdx % numPlayers;
+                const lastPlayerIdx = (firstPlayerIdx - 1 + numPlayers) % numPlayers;
+                
+                const predictionOrder = [];
+                for (let i = 0; i < numPlayers; i++) {
+                  const playerIdx = (firstPlayerIdx + i) % numPlayers;
+                  predictionOrder.push({
+                    playerIdx,
+                    prediction: players[playerIdx].predictions[roundIdx]
+                  });
+                }
+                
+                const firstEmptyInOrder = predictionOrder.find(p => 
+                  p.prediction === undefined || p.prediction === null || p.prediction === ""
+                );
+                const activePlayerIdx = firstEmptyInOrder ? firstEmptyInOrder.playerIdx : -1;
+                
+                // Helper function for card restriction calculation
+                const sumPredSoFar = (targetPlayerIdx) => {
+                  let sum = 0;
+                  const targetOrderIdx = predictionOrder.findIndex(p => p.playerIdx === targetPlayerIdx);
+                  for (let i = 0; i < targetOrderIdx; i++) {
+                    const pred = predictionOrder[i].prediction;
+                    sum += (pred !== undefined && pred !== null && pred !== "") ? Number(pred) : 0;
+                  }
+                  return sum;
+                };
+                
+                return (
+                  <Card key={roundIdx} sx={{ 
+                    borderRadius: 2,
+                    border: '1px solid #e0e0e0',
+                    backgroundColor: '#fafafa'
+                  }}>
+                    <CardContent sx={{ p: 2 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                        <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
+                          Round {roundIdx + 1}
+                        </Typography>
+                        <Chip 
+                          label={`${cards} cards`} 
+                          size="small" 
+                          color="primary"
+                        />
+                      </Box>
+                      
+                      <Stack spacing={1}>
+                        {players.slice(0, numPlayers).map((player, playerIdx) => {
+                          // Same highlighting logic as desktop table
+                          const isActivePlayer = playerIdx === activePlayerIdx;
+                          const isLastPlayer = playerIdx === lastPlayerIdx;
+                          const isMyCard = playerIdx === currentUserPlayerIndex;
+                          
+                          // Calculate card restriction for last player (same logic as desktop)
+                          let restrictionMessage = "";
+                          if (isActivePlayer && isLastPlayer && numPlayers > 1) {
+                            const forbidden = cards - sumPredSoFar(playerIdx);
+                            restrictionMessage = forbidden >= 0 && forbidden <= cards ? `ΟΧΙ ${forbidden}` : "ΟΣΕΣ";
+                          }
+                          
+                          return (
+                            <Box key={playerIdx} sx={{ position: 'relative' }}>
+                              {/* Restriction chip for last player */}
+                              {restrictionMessage && (
+                                <Chip
+                                  label={restrictionMessage}
+                                  size="small"
+                                  sx={{
+                                    position: 'absolute',
+                                    top: -8,
+                                    right: 8,
+                                    zIndex: 1,
+                                    backgroundColor: '#d32f2f',
+                                    color: 'white',
+                                    fontWeight: 'bold',
+                                    fontSize: '0.75rem'
+                                  }}
+                                />
+                              )}
+                              
+                              <Box sx={{ 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                justifyContent: 'space-between',
+                                p: 1,
+                                backgroundColor: isActivePlayer ? '#e3f2fd' : (isMyCard ? '#f8f9fa' : 'white'),
+                                borderRadius: 1,
+                                border: isLastPlayer ? '2px solid #ff9800' : '1px solid #e0e0e0'
+                              }}>
+                              <Typography variant="body2" sx={{ fontWeight: 600, minWidth: '80px' }}>
+                                {player.name}
+                              </Typography>
+                            
+                            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                              <TextField
+                                size="small"
+                                type="number"
+                                placeholder="Pred"
+                                value={player.predictions[roundIdx] ?? ""}
+                                onChange={(e) => handlePrediction(roundIdx, playerIdx, e.target.value)}
+                                disabled={!isFieldEditable(roundIdx, playerIdx, 'prediction')}
+                                sx={{ width: '60px' }}
+                              />
+                              <Typography variant="body2" color="text.secondary">
+                                /
+                              </Typography>
+                              <TextField
+                                size="small"
+                                type="number"
+                                placeholder="Tricks"
+                                value={player.tricks[roundIdx] ?? ""}
+                                onChange={(e) => handleTricks(roundIdx, playerIdx, e.target.value)}
+                                disabled={!isFieldEditable(roundIdx, playerIdx, 'tricks')}
+                                sx={{ width: '60px' }}
+                              />
+                              <Typography variant="body2" sx={{ 
+                                minWidth: '40px', 
+                                textAlign: 'right',
+                                fontWeight: 600,
+                                color: '#1976d2'
+                              }}>
+                                {player.points[roundIdx] ?? 0}
+                              </Typography>
+                            </Box>
+                          </Box>
+                          </Box>
+                          );
+                        })}
+                      </Stack>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </Stack>
+          </Box>
 
           {/* Ranking */}
           <Box>
             <Typography variant="h6" mt={2} mb={2} sx={{ fontWeight: "bold", color: "#1976d2" }}>
               🏆 Κατάταξη
             </Typography>
-            <Table size="small" sx={{ maxWidth: 500, border: "1px solid #e0e0e0", borderRadius: 2 }}>
-              <TableHead>
-                <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
-                  <TableCell sx={{ fontWeight: "bold" }}>Κατάταξη</TableCell>
-                  <TableCell sx={{ fontWeight: "bold" }}>Παίκτης</TableCell>
-                  <TableCell sx={{ fontWeight: "bold" }}>Πόντοι</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {getRankedSummary(players, numPlayers, totalPoints).map(
-                  (row, i) => (
-                    <TableRow 
-                      key={i}
-                      sx={{ 
-                        '&:nth-of-type(odd)': { backgroundColor: '#f9f9f9' },
-                        '&:first-of-type': { backgroundColor: '#fff3e0', fontWeight: 'bold' }
-                      }}
-                    >
-                      <TableCell>
-                        {row["Κατάταξη"] === 1 ? "🥇" : row["Κατάταξη"] === 2 ? "🥈" : row["Κατάταξη"] === 3 ? "🥉" : row["Κατάταξη"]}
+            
+            {/* Desktop Ranking Table */}
+            <Box sx={{ display: { xs: 'none', md: 'block' } }}>
+              <Table size="small" sx={{ maxWidth: 500, border: "1px solid #e0e0e0", borderRadius: 2 }}>
+                <TableHead>
+                  <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
+                    <TableCell sx={{ fontWeight: "bold" }}>Κατάταξη</TableCell>
+                    <TableCell sx={{ fontWeight: "bold" }}>Παίκτης</TableCell>
+                    <TableCell sx={{ fontWeight: "bold" }}>Πόντοι</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {getRankedSummary(players, numPlayers, totalPoints).map(
+                    (row, i) => (
+                      <TableRow 
+                        key={i}
+                        sx={{ 
+                          '&:nth-of-type(odd)': { backgroundColor: '#f9f9f9' },
+                          '&:first-of-type': { backgroundColor: '#fff3e0', fontWeight: 'bold' }
+                        }}
+                      >
+                        <TableCell>
+                          {row["Κατάταξη"] === 1 ? "🥇" : row["Κατάταξη"] === 2 ? "🥈" : row["Κατάταξη"] === 3 ? "🥉" : row["Κατάταξη"]}
                       </TableCell>
                       <TableCell sx={{ fontWeight: row["Κατάταξη"] === 1 ? "bold" : "normal" }}>
                         {row["Παίκτης"]}
@@ -787,10 +937,48 @@ export default function MultiplayerGame({ gameId, initialGameData, onLeaveGame }
                         {row["Σύνολο Πόντων"]}
                       </TableCell>
                     </TableRow>
-                  )
-                )}
+                  ))}
               </TableBody>
             </Table>
+            </Box>
+            
+            {/* Mobile Ranking Cards */}
+            <Box sx={{ display: { xs: 'block', md: 'none' } }}>
+              <Stack spacing={1}>
+                {getRankedSummary(players, numPlayers, totalPoints).map(
+                  (row, i) => (
+                    <Card 
+                      key={i} 
+                      sx={{ 
+                        borderRadius: 2,
+                        border: row["Κατάταξη"] === 1 ? '2px solid #ffd700' : '1px solid #e0e0e0',
+                        backgroundColor: row["Κατάταξη"] === 1 ? '#fff8e1' : 'white'
+                      }}
+                    >
+                      <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Typography variant="h6" sx={{ fontSize: '1.25rem' }}>
+                              {row["Κατάταξη"] === 1 ? "🥇" : row["Κατάταξη"] === 2 ? "🥈" : row["Κατάταξη"] === 3 ? "🥉" : `#${row["Κατάταξη"]}`}
+                            </Typography>
+                            <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
+                              {row["Παίκτης"]}
+                            </Typography>
+                          </Box>
+                          <Typography variant="h6" sx={{ 
+                            fontSize: '1.25rem', 
+                            fontWeight: 700, 
+                            color: '#1976d2' 
+                          }}>
+                            {row["Σύνολο Πόντων"]}
+                          </Typography>
+                        </Box>
+                      </CardContent>
+                    </Card>
+                  )
+                )}
+              </Stack>
+            </Box>
           </Box>
 
           <Stack 

@@ -1,6 +1,29 @@
-# Deployment Guide for Trumps Dashboard
+# 🚀 Deployment Guide for Trumps Dashboard
 
 This guide covers all deployment options for the Trumps Dashboard multiplayer game application.
+
+## 🎯 **QUICK START - Recommended: Vercel**
+
+I've set up everything you need! Just run:
+
+```bash
+# Install Vercel CLI
+npm i -g vercel
+
+# Deploy (from project root)
+cd /Users/evlastos/perprojects/trumps-dashboard
+vercel
+
+# Follow prompts:
+# - Link to existing project? No  
+# - Project name: trumps-dashboard
+# - Directory: ./
+# - Override settings? No
+```
+
+**Your app will be live at: `https://trumps-dashboard-xxx.vercel.app/trumps`**
+
+---
 
 ## 📋 Prerequisites
 
