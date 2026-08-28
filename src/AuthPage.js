@@ -80,7 +80,7 @@ export default function AuthPage() {
   return (
     <Box sx={{ 
       minHeight: '100vh',
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      background: 'radial-gradient(1100px 700px at 50% -10%, #147356 0%, #0A4A38 55%, #063D2E 100%)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
@@ -92,20 +92,21 @@ export default function AuthPage() {
           borderRadius: 3,
           boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
         }}>
+          <Box sx={{ textAlign: 'center', mb: 1 }}>
+            <Typography component="span" sx={{ fontSize: '2.5rem', color: '#C9962E', lineHeight: 1 }}>
+              ♠
+            </Typography>
+          </Box>
           <Typography 
             variant="h4" 
             align="center" 
             gutterBottom
             sx={{ 
               fontSize: { xs: '1.75rem', sm: '2.125rem' },
-              fontWeight: 700,
-              background: 'linear-gradient(45deg, #667eea, #764ba2)',
-              backgroundClip: 'text',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent'
+              color: 'primary.dark'
             }}
           >
-            🎴 Trumps Dashboard
+            Trumps
           </Typography>
           
           <Typography 
@@ -117,7 +118,7 @@ export default function AuthPage() {
               fontSize: { xs: '0.875rem', sm: '1rem' }
             }}
           >
-            Join or create multiplayer Trump card games
+            Παίξε ή κράτα σκορ με την παρέα σου — online
           </Typography>
 
           <Tabs 
@@ -168,13 +169,7 @@ export default function AuthPage() {
                 fullWidth
                 sx={{
                   py: { xs: 1.5, sm: 2 },
-                  fontSize: { xs: '1rem', sm: '1.125rem' },
-                  fontWeight: 600,
-                  borderRadius: 2,
-                  background: 'linear-gradient(45deg, #667eea, #764ba2)',
-                  '&:hover': {
-                    background: 'linear-gradient(45deg, #5a6fd8, #6a4190)',
-                  }
+                  fontSize: { xs: '1rem', sm: '1.125rem' }
                 }}
               >
                 {loading ? 'Σύνδεση...' : 'Σύνδεση'}
@@ -225,13 +220,7 @@ export default function AuthPage() {
                 fullWidth
                 sx={{
                   py: { xs: 1.5, sm: 2 },
-                  fontSize: { xs: '1rem', sm: '1.125rem' },
-                  fontWeight: 600,
-                  borderRadius: 2,
-                  background: 'linear-gradient(45deg, #667eea, #764ba2)',
-                  '&:hover': {
-                    background: 'linear-gradient(45deg, #5a6fd8, #6a4190)',
-                  }
+                  fontSize: { xs: '1rem', sm: '1.125rem' }
                 }}
               >
                 {loading ? 'Εγγραφή...' : 'Εγγραφή'}

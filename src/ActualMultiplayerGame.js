@@ -6,6 +6,7 @@ import {
 import io from 'socket.io-client';
 import { useAuth } from './AuthContext';
 import ActualGameHistory from './ActualGameHistory';
+import AppHeader from './AppHeader';
 
 // Modern card component
 function PlayingCard({ value, suit, onClick, disabled, selected, small }) {
@@ -165,8 +166,8 @@ export default function ActualMultiplayerGame({ gameId, initialGameData, onLeave
 				{Array(numPlayers).fill(null).map((_, idx) => {
 					const p = players[idx];
 					return (
-						<Paper key={idx} sx={{ p: 2, minWidth: 120, opacity: p ? 1 : 0.5, border: p?.userId === user.id ? '2px solid #4caf50' : '1px solid #e0e0e0' }}>
-							<Avatar sx={{ mx: 'auto', mb: 1, bgcolor: p ? '#1976d2' : '#bdbdbd' }}>
+						<Paper key={idx} sx={{ p: 2, minWidth: 120, opacity: p ? 1 : 0.5, border: p?.userId === user.id ? '2px solid #0F5F49' : '1px solid #E4E0D5' }}>
+							<Avatar sx={{ mx: 'auto', mb: 1, bgcolor: p ? 'primary.main' : '#bdbdbd' }}>
 								{p ? p.username[0].toUpperCase() : '?'}
 							</Avatar>
 							<Typography variant="body2" sx={{ fontWeight: 600 }}>
@@ -207,8 +208,8 @@ export default function ActualMultiplayerGame({ gameId, initialGameData, onLeave
 				<Chip label={`Round ${roundIdx + 1}/${rounds.length}`} color="primary" />
 				<Chip label={`${cardsThisRound} cards`} variant="outlined" />
 				<Chip
-					label={`${trumpSuit} Trumps (μπαλαντέρ)`}
-					sx={{ fontWeight: 700, backgroundColor: '#263238', color: '#fff' }}
+					label={`${trumpSuit} Ατού (μπαλαντέρ)`}
+					sx={{ fontWeight: 700, backgroundColor: 'primary.dark', color: '#E0B85C' }}
 				/>
 			</Stack>
 
@@ -217,8 +218,8 @@ export default function ActualMultiplayerGame({ gameId, initialGameData, onLeave
 				{players.map((p, idx) => (
 					<Paper key={idx} sx={{
 						px: 2, py: 1, minWidth: 110,
-						backgroundColor: turn === idx ? '#e3f2fd' : '#fafafa',
-						border: idx === myIdx ? '2px solid #4caf50' : (turn === idx ? '2px solid #1976d2' : '1px solid #e0e0e0'),
+						backgroundColor: turn === idx ? 'rgba(201, 150, 46, 0.14)' : '#FAF9F5',
+						border: turn === idx ? '2px solid #C9962E' : (idx === myIdx ? '2px solid #0F5F49' : '1px solid #E4E0D5'),
 					}}>
 						<Typography variant="body2" sx={{ fontWeight: 700 }}>
 							{p.username}{idx === myIdx ? ' 👤' : ''}
@@ -286,9 +287,14 @@ export default function ActualMultiplayerGame({ gameId, initialGameData, onLeave
 						{myTurn ? '🎯 Your turn — play a card' : `Waiting for ${playerNames[turn] || '...'} to play`}
 					</Typography>
 
-					{/* Current trick */}
-					<Paper variant="outlined" sx={{ p: 2, mb: 2, minHeight: 110, backgroundColor: '#f0f7f0' }}>
-						<Typography variant="subtitle2" sx={{ mb: 1 }}>On the table</Typography>
+					{/* Current trick — the felt table */}
+					<Paper sx={{
+						p: 2, mb: 2, minHeight: 130,
+						background: 'radial-gradient(ellipse at 50% 30%, #147356 0%, #0A4A38 70%, #063D2E 100%)',
+						border: '3px solid #9A701C',
+						'& .MuiTypography-caption': { color: '#DFF3EA' }
+					}}>
+						<Typography variant="subtitle2" sx={{ mb: 1, color: '#E0B85C' }}>Στο τραπέζι</Typography>
 						{currentTrick.length === 0 ? (
 							completedTrick ? (
 								<Stack direction="row" spacing={2} alignItems="center" sx={{ flexWrap: 'wrap' }}>
@@ -302,8 +308,8 @@ export default function ActualMultiplayerGame({ gameId, initialGameData, onLeave
 									<Chip color="success" label={`${playerNames[completedTrick.winner]} took the trick`} />
 								</Stack>
 							) : (
-								<Typography variant="body2" color="text.secondary">
-									{playerNames[turn] || 'Someone'} leads the first trick
+								<Typography variant="body2" sx={{ color: '#DFF3EA' }}>
+									{playerNames[turn] || 'Κάποιος'} παίζει πρώτος
 								</Typography>
 							)
 						) : (
@@ -352,7 +358,7 @@ export default function ActualMultiplayerGame({ gameId, initialGameData, onLeave
 							<TableCell sx={{ fontWeight: 700 }}>Cards</TableCell>
 							{playerNames.map((name, idx) => (
 								<TableCell key={idx} align="center" colSpan={3}
-									sx={{ fontWeight: 700, color: idx === myIdx ? '#4caf50' : '#1976d2' }}>
+									sx={{ fontWeight: 700, color: idx === myIdx ? 'primary.main' : 'text.primary' }}>
 									{name}
 								</TableCell>
 							))}
@@ -370,7 +376,7 @@ export default function ActualMultiplayerGame({ gameId, initialGameData, onLeave
 					</TableHead>
 					<TableBody>
 						{rounds.map((cards, rIdx) => (
-							<TableRow key={rIdx} sx={{ backgroundColor: rIdx === roundIdx && !isCompleted ? '#fff9c4' : 'inherit' }}>
+							<TableRow key={rIdx} sx={{ backgroundColor: rIdx === roundIdx && !isCompleted ? 'rgba(201, 150, 46, 0.12)' : 'inherit' }}>
 								<TableCell>{rIdx + 1}</TableCell>
 								<TableCell>{cards}</TableCell>
 								{playerNames.map((_, pIdx) => {
@@ -407,13 +413,14 @@ export default function ActualMultiplayerGame({ gameId, initialGameData, onLeave
 
 	return (
 		<React.Fragment>
+			<AppHeader subtitle={`Τραπέζι ${gameId}`} />
 			<Container maxWidth="lg">
-				<Paper sx={{ p: 3, borderRadius: 3, mt: 4, mb: 4 }}>
+				<Paper sx={{ p: 3, borderRadius: 3, mt: 3, mb: 4 }}>
 					<Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
-						<Typography variant="h4">🃏 Trumps — Live Game</Typography>
+						<Typography variant="h5">Live Τραπέζι</Typography>
 						<Stack direction="row" spacing={1} alignItems="center">
-							<Chip size="small" label={connected ? 'Connected' : 'Disconnected'} color={connected ? 'success' : 'error'} />
-							<Button variant="outlined" color="error" size="small" onClick={onLeaveGame}>Leave</Button>
+							<Chip size="small" label={connected ? 'Συνδεδεμένος' : 'Αποσυνδέθηκες'} color={connected ? 'success' : 'error'} variant="outlined" />
+							<Button variant="outlined" color="error" size="small" onClick={onLeaveGame}>Έξοδος</Button>
 						</Stack>
 					</Stack>
 					<Tabs value={tabIndex} onChange={(e, v) => setTabIndex(v)} sx={{ mb: 2 }}>

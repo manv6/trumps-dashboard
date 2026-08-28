@@ -10,13 +10,14 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 import ActualGameHistory from './ActualGameHistory';
+import AppHeader from './AppHeader';
 
 // Route for a game depends on its mode: 'actual' games are played live
 const gamePath = (mode, gameId) =>
   mode === 'actual' ? `/actual-game/${gameId}` : `/game/${gameId}`;
 
 export default function GameLobby() {
-  const { user, logout, createGame, joinGame, listGames, getAllGamesHistory, checkCurrentGame } = useAuth();
+  const { user, createGame, joinGame, listGames, getAllGamesHistory, checkCurrentGame } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -179,64 +180,16 @@ export default function GameLobby() {
   }, []);  // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <Box sx={{ 
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-      py: { xs: 2, sm: 4 }
-    }}>
-      <Container maxWidth="md">
+    <Box sx={{ minHeight: '100vh', backgroundColor: 'background.default' }}>
+      <AppHeader subtitle="Lobby" />
+      <Container maxWidth="md" sx={{ py: { xs: 2, sm: 4 } }}>
         <Paper sx={{ 
           p: { xs: 2, sm: 4 },
-          borderRadius: 3,
-          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+          borderRadius: 3
         }}>
-          <Box sx={{ 
-            display: 'flex', 
-            flexDirection: { xs: 'column', sm: 'row' },
-            justifyContent: 'space-between', 
-            alignItems: { xs: 'center', sm: 'center' }, 
-            mb: 3,
-            gap: { xs: 2, sm: 0 }
-          }}>
-            <Typography 
-              variant="h4"
-              sx={{
-                fontSize: { xs: '1.75rem', sm: '2.125rem' },
-                fontWeight: 700,
-                background: 'linear-gradient(45deg, #667eea, #764ba2)',
-                backgroundClip: 'text',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent'
-              }}
-            >
-              🎴 Game Lobby
-            </Typography>
-            <Box sx={{ 
-              display: 'flex', 
-              flexDirection: { xs: 'column', sm: 'row' },
-              alignItems: 'center', 
-              gap: { xs: 1, sm: 2 },
-              textAlign: { xs: 'center', sm: 'left' }
-            }}>
-              <Typography 
-                variant="body1"
-                sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
-              >
-                Welcome, <strong>{user.username}</strong>!
-              </Typography>
-              <Button 
-                variant="outlined" 
-                onClick={logout}
-                size="small"
-                sx={{
-                  borderRadius: 2,
-                  fontWeight: 600
-                }}
-              >
-                Αποσύνδεση
-              </Button>
-            </Box>
-          </Box>
+          <Typography variant="h5" sx={{ mb: 3 }}>
+            Καλώς ήρθες, {user.username} 👋
+          </Typography>
 
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
@@ -328,10 +281,6 @@ export default function GameLobby() {
                       fontSize: { xs: '1rem', sm: '1.125rem' },
                       fontWeight: 600,
                       borderRadius: 2,
-                      background: 'linear-gradient(45deg, #667eea, #764ba2)',
-                      '&:hover': {
-                        background: 'linear-gradient(45deg, #5a6fd8, #6a4190)',
-                      }
                     }}
                   >
                     {loading ? 'Creating Game...' : 'Create Game'}
@@ -382,10 +331,6 @@ export default function GameLobby() {
                       fontSize: { xs: '1rem', sm: '1.125rem' },
                       fontWeight: 600,
                       borderRadius: 2,
-                      background: 'linear-gradient(45deg, #667eea, #764ba2)',
-                      '&:hover': {
-                        background: 'linear-gradient(45deg, #5a6fd8, #6a4190)',
-                      }
                     }}
                   >
                     {loading ? 'Joining Game...' : 'Join Game'}
