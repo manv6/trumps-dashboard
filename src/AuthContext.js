@@ -88,12 +88,13 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   };
 
-  const createGame = async (numPlayers) => {
+  const createGame = async (numPlayers, mode = 'normal') => {
     try {
       const response = await axios.post(`${API_BASE_URL}/create-game`, {
         userId: user.id,
         username: user.username,
-        numPlayers
+        numPlayers,
+        mode
       });
 
       return {
@@ -240,6 +241,42 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Fetch completed advanced (real-time card) games
+  const getActualGameHistory = async () => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/actual-games/history`);
+      return {
+        success: true,
+        games: response.data.games
+      };
+    } catch (error) {
+      return {
+        success: false,
+        games: [],
+        error: error.response?.data?.error || 'Failed to get actual games history'
+      };
+    }
+  };
+
+  // Save completed advanced game
+  const completeActualGame = async (gameId, gameResults) => {
+    try {
+      const response = await axios.post(`${API_BASE_URL}/actual-game/${gameId}/complete`, {
+        userId: user.id,
+        ...gameResults
+      });
+      return {
+        success: true,
+        ...response.data
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to complete actual game'
+      };
+    }
+  };
+
   const value = {
     user,
     loading,
@@ -253,7 +290,9 @@ export const AuthProvider = ({ children }) => {
     getUserHistory,
     getAllGamesHistory,
     checkCurrentGame,
-    completeGame
+    completeGame,
+    completeActualGame,
+    getActualGameHistory
   };
 
   return (

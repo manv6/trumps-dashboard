@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './AuthContext';
 import AuthPage from './AuthPage';
 import GameLobby from './GameLobby';
 import GameRoom from './GameRoom';
+import ActualGameRoom from './ActualGameRoom';
 import { CircularProgress, Box } from '@mui/material';
 
 function AppContent() {
@@ -26,6 +27,8 @@ function AppContent() {
       <Route path="/" element={<Navigate to="/lobby" replace />} />
       <Route path="/lobby" element={<GameLobby />} />
       <Route path="/game/:gameId" element={<GameRoom />} />
+      <Route path="/actual-game/:gameId" element={<ActualGameRoom />} />
+      <Route path="/actual-history" element={React.createElement(require('./ActualGameHistory').default)} />
       <Route path="*" element={<Navigate to="/lobby" replace />} />
     </Routes>
   );

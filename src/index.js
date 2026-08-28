@@ -4,23 +4,18 @@ import './index.css';
 import MainApp from './MainApp';
 import reportWebVitals from './reportWebVitals';
 
-// Suppress ResizeObserver warnings in development
-if (process.env.NODE_ENV === 'development') {
-  const resizeObserverErrDiv = document.getElementById('webpack-dev-server-client-overlay-div');
-  const resizeObserverErr = document.getElementById('webpack-dev-server-client-overlay');
-  if (resizeObserverErr) {
-    resizeObserverErr.setAttribute('style', 'display: none');
-  }
-  if (resizeObserverErrDiv) {
-    resizeObserverErrDiv.setAttribute('style', 'display: none');
-  }
-  
-  // Catch ResizeObserver errors
-  window.addEventListener('error', (event) => {
-    if (event.message && event.message.includes('ResizeObserver loop completed with undelivered notifications')) {
-      event.stopImmediatePropagation();
+// Prevent benign "ResizeObserver loop completed with undelivered notifications"
+// errors from triggering the dev-server error overlay. Deferring observer
+// callbacks to the next animation frame stops the loop condition at the source.
+if (process.env.NODE_ENV === 'development' && typeof window.ResizeObserver !== 'undefined') {
+  const NativeResizeObserver = window.ResizeObserver;
+  window.ResizeObserver = class extends NativeResizeObserver {
+    constructor(callback) {
+      super((entries, observer) => {
+        window.requestAnimationFrame(() => callback(entries, observer));
+      });
     }
-  });
+  };
 }
 
 const root = ReactDOM.createRoot(document.getElementById('root'));

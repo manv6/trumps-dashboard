@@ -4,10 +4,16 @@ import {
   Alert, Table, TableBody, TableCell, 
   TableContainer, TableHead, TableRow, Chip, Tabs, Tab,
   Grid, Card, CardContent, Stack,
-  Dialog, DialogTitle, DialogContent, DialogActions
+  Dialog, DialogTitle, DialogContent, DialogActions,
+  ToggleButton, ToggleButtonGroup
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
+import ActualGameHistory from './ActualGameHistory';
+
+// Route for a game depends on its mode: 'actual' games are played live
+const gamePath = (mode, gameId) =>
+  mode === 'actual' ? `/actual-game/${gameId}` : `/game/${gameId}`;
 
 export default function GameLobby() {
   const { user, logout, createGame, joinGame, listGames, getAllGamesHistory, checkCurrentGame } = useAuth();
@@ -17,6 +23,8 @@ export default function GameLobby() {
   const [success, setSuccess] = useState('');
   const [gameIdInput, setGameIdInput] = useState('');
   const [numPlayers, setNumPlayers] = useState(4);
+  const [gameMode, setGameMode] = useState('normal');
+  const [currentGameMode, setCurrentGameMode] = useState('normal');
   const [availableGames, setAvailableGames] = useState([]);
   const [gamesLoading, setGamesLoading] = useState(false);
   const [allGamesHistory, setAllGamesHistory] = useState([]);
@@ -32,6 +40,7 @@ export default function GameLobby() {
     const result = await checkCurrentGame();
     if (result.success && result.isInGame) {
       setUserCurrentGame(result.gameId);
+      setCurrentGameMode(result.mode || 'normal');
       setIsInGame(true);
       return true;
     } else {
@@ -53,13 +62,13 @@ export default function GameLobby() {
     setError('');
     setSuccess('');
 
-    const result = await createGame(numPlayers);
+    const result = await createGame(numPlayers, gameMode);
     
     if (result.success) {
       setSuccess(`Game created! Game ID: ${result.gameId}`);
       // Navigate to the created game
       setTimeout(() => {
-        navigate(`/game/${result.gameId}`);
+        navigate(gamePath(gameMode, result.gameId));
       }, 1500);
     } else {
       setError(result.error);
@@ -90,7 +99,7 @@ export default function GameLobby() {
     if (result.success) {
       setSuccess('Joined game successfully!');
       setTimeout(() => {
-        navigate(`/game/${gameIdInput.trim().toUpperCase()}`);
+        navigate(gamePath(result.game?.mode, gameIdInput.trim().toUpperCase()));
       }, 1000);
     } else {
       setError(result.error);
@@ -133,7 +142,8 @@ export default function GameLobby() {
     setHistoryLoading(false);
   };
 
-  const handleJoinFromList = async (gameId) => {
+  const handleJoinFromList = async (game) => {
+    const gameId = game.gameId;
     // Check if user is already in a game
     const userInGame = await checkUserCurrentGame();
     if (userInGame) {
@@ -150,7 +160,7 @@ export default function GameLobby() {
     if (result.success) {
       setSuccess('Joined game successfully!');
       setTimeout(() => {
-        navigate(`/game/${gameId}`);
+        navigate(gamePath(game.mode, gameId));
       }, 1000);
     } else {
       setError(result.error);
@@ -247,7 +257,7 @@ export default function GameLobby() {
               variant="outlined" 
               size="small" 
               sx={{ ml: 2 }}
-              onClick={() => navigate(`/game/${userCurrentGame}`)}
+              onClick={() => navigate(gamePath(currentGameMode, userCurrentGame))}
             >
               Go to Game
             </Button>
@@ -273,6 +283,27 @@ export default function GameLobby() {
                   🎯 Create New Game
                 </Typography>
                 <Stack spacing={3}>
+                  <Box>
+                    <ToggleButtonGroup
+                      value={gameMode}
+                      exclusive
+                      onChange={(e, v) => v && setGameMode(v)}
+                      fullWidth
+                      size="small"
+                    >
+                      <ToggleButton value="normal" sx={{ fontWeight: 600 }}>
+                        📊 Scoreboard Only
+                      </ToggleButton>
+                      <ToggleButton value="actual" sx={{ fontWeight: 600 }}>
+                        🃏 Live Card Game
+                      </ToggleButton>
+                    </ToggleButtonGroup>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                      {gameMode === 'actual'
+                        ? 'Cards are dealt and played online, in real time'
+                        : 'Track scores while playing with physical cards'}
+                    </Typography>
+                  </Box>
                   <TextField
                     label="Number of Players"
                     type="number"
@@ -371,6 +402,7 @@ export default function GameLobby() {
             <Tabs value={currentTab} onChange={(e, newValue) => setCurrentTab(newValue)}>
               <Tab label="🎮 Active Games" />
               <Tab label="📚 All Games History" />
+              <Tab label="🃏 Card Game History" />
             </Tabs>
           </Box>
           
@@ -423,6 +455,14 @@ export default function GameLobby() {
                                 <TableCell>
                                   <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 'bold' }}>
                                     {game.gameId}
+                                    {game.mode === 'actual' && (
+                                      <Chip 
+                                        label="🃏 LIVE" 
+                                        color="secondary" 
+                                        size="small" 
+                                        sx={{ ml: 1, fontSize: '0.7em' }}
+                                      />
+                                    )}
                                     {isUserInGame && (
                                       <Chip 
                                         label="YOU'RE HERE" 
@@ -474,9 +514,9 @@ export default function GameLobby() {
                                 }
                                 onClick={() => {
                                   if (isUserInGame) {
-                                    navigate(`/game/${game.gameId}`);
+                                    navigate(gamePath(game.mode, game.gameId));
                                   } else {
-                                    handleJoinFromList(game.gameId);
+                                    handleJoinFromList(game);
                                   }
                                 }}
                                 sx={{ minWidth: '80px' }}
@@ -511,6 +551,14 @@ export default function GameLobby() {
                                   <Typography variant="h6" sx={{ fontFamily: 'monospace', fontWeight: 'bold', fontSize: '1rem' }}>
                                     {game.gameId}
                                   </Typography>
+                                  {game.mode === 'actual' && (
+                                    <Chip 
+                                      label="🃏 LIVE" 
+                                      color="secondary" 
+                                      size="small" 
+                                      sx={{ mt: 0.5, mr: 0.5 }}
+                                    />
+                                  )}
                                   {isUserInGame && (
                                     <Chip 
                                       label="YOU'RE HERE" 
@@ -550,10 +598,9 @@ export default function GameLobby() {
                                 disabled={!isUserInGame && (game.spotsAvailable === 0 || (isInGame && !isUserInGame))}
                                 onClick={() => {
                                   if (isUserInGame) {
-                                    navigate(`/game/${game.gameId}`);
+                                    navigate(gamePath(game.mode, game.gameId));
                                   } else {
-                                    setGameIdInput(game.gameId);
-                                    handleJoinGame();
+                                    handleJoinFromList(game);
                                   }
                                 }}
                                 sx={{ 
@@ -654,7 +701,7 @@ export default function GameLobby() {
                                       setSelectedGameResults(game.finalResults);
                                       setResultsDialogOpen(true);
                                     } else {
-                                      navigate(`/game/${game.gameId}`);
+                                      navigate(gamePath(game.mode, game.gameId));
                                     }
                                   }}
                                   sx={{ minWidth: '80px' }}
@@ -714,7 +761,7 @@ export default function GameLobby() {
                                   setSelectedGameResults(game.finalResults);
                                   setResultsDialogOpen(true);
                                 } else {
-                                  navigate(`/game/${game.gameId}`);
+                                  navigate(gamePath(game.mode, game.gameId));
                                 }
                               }}
                               sx={{ 
@@ -735,6 +782,13 @@ export default function GameLobby() {
                   </Box>
                 </div>
               )}
+            </Box>
+          )}
+
+          {/* Card Game History Tab */}
+          {currentTab === 2 && (
+            <Box sx={{ pt: 3 }}>
+              <ActualGameHistory />
             </Box>
           )}
         </Box>
