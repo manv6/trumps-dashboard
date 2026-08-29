@@ -1,5 +1,12 @@
 # 📱 Shipping Trumps to Android (Google Play) & iOS (App Store)
 
+> **UPDATE:** the repo now contains a **native Expo app** in [`mobile/`](mobile/)
+> — real React Native screens talking to the same backend, shippable via
+> **EAS Build** (cloud iOS builds, no Mac needed). See [`mobile/README.md`](mobile/README.md)
+> for run + ship instructions; the store-side sections of this guide
+> (5.3+, 6.3+: consoles, review requirements, privacy) still apply.
+> The Capacitor path below remains as the web-wrap alternative.
+
 This guide covers everything needed to ship this app to both stores using
 **Capacitor** — a native wrapper that packages the existing React build into
 real Android/iOS apps. No rewrite needed: the React code stays exactly as it
