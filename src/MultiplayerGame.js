@@ -6,6 +6,7 @@ import {
 } from '@mui/material';
 import io from 'socket.io-client';
 import { useAuth } from './AuthContext';
+import AppHeader from './AppHeader';
 
 // Helper functions (copied from original App.js)
 function cumulativePoints(pointsArr, roundIdx) {
@@ -217,7 +218,7 @@ export default function MultiplayerGame({ gameId, initialGameData, onLeaveGame }
     return (
       <Box sx={{ 
         minHeight: '100vh',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        backgroundColor: 'background.default',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -257,16 +258,12 @@ export default function MultiplayerGame({ gameId, initialGameData, onLeaveGame }
   }
 
   return (
-    <Box sx={{ 
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-      py: { xs: 2, sm: 4 }
-    }}>
-      <Container maxWidth="xl">
+    <Box sx={{ minHeight: '100vh', backgroundColor: 'background.default' }}>
+      <AppHeader subtitle={`Σκορ ${gameId}`} />
+      <Container maxWidth="xl" sx={{ py: { xs: 2, sm: 4 } }}>
         <Paper id="dashboard-content" sx={{ 
           p: { xs: 2, sm: 4 },
-          borderRadius: 3,
-          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+          borderRadius: 3
         }}>
           <Stack spacing={3}>
             <Box sx={{ 
@@ -281,14 +278,10 @@ export default function MultiplayerGame({ gameId, initialGameData, onLeaveGame }
                   variant="h4" 
                   sx={{ 
                     fontSize: { xs: '1.5rem', sm: '2.125rem' },
-                    fontWeight: 700,
-                    background: 'linear-gradient(45deg, #667eea, #764ba2)',
-                    backgroundClip: 'text',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent'
+                    color: 'primary.dark'
                   }}
                 >
-                  🎴 Trumps – Multiplayer Game
+                  Πίνακας Σκορ
                 </Typography>
                 <Box sx={{ 
                   display: 'flex', 
