@@ -79,7 +79,7 @@ function Medallion({ name, initial, isTurn, halo, bid, won }) {
     <View style={styles.medallion}>
       <View style={{ alignItems: 'center', justifyContent: 'center' }}>
         {isTurn && <PulseRing size={56} />}
-        {halo && <Halo width={46} style={{ position: 'absolute', top: -20, zIndex: 5 }} />}
+        {halo && <Halo width={72} />}
         <View style={[styles.medallionCircle, isTurn && styles.medallionTurn]}>
           <Text style={styles.medallionInitial}>{initial}</Text>
         </View>
@@ -670,7 +670,7 @@ export default function LiveGameScreen({ route, navigation }) {
             {ranked.map((row) => (
               <View key={row.idx} style={[styles.rankRow, row.isWinner && styles.rankRowWinner]}>
                 <View style={{ alignItems: 'center', justifyContent: 'center' }}>
-                  {row.isWinner && <Halo width={36} style={{ position: 'absolute', top: -16, zIndex: 5 }} />}
+                  {row.isWinner && <Halo width={56} />}
                   <View style={[styles.medallionCircle, { width: 40, height: 40, borderRadius: 20 }, row.isWinner && styles.medallionTurn]}>
                     <Text style={[styles.medallionInitial, { fontSize: 16 }]}>{row.name[0]?.toUpperCase()}</Text>
                   </View>
@@ -746,7 +746,10 @@ export default function LiveGameScreen({ route, navigation }) {
 
             {trickHalo === myIdx && (
               <View pointerEvents="none" style={styles.myHalo}>
-                <Halo width={52} />
+                <View style={{ width: 56, height: 56, alignItems: 'center', justifyContent: 'center' }}>
+                  <Halo width={56} />
+                  <Text style={{ fontSize: 22 }}>👑</Text>
+                </View>
                 <Text style={styles.myHaloText}>ΝΙΚΗ!</Text>
               </View>
             )}
@@ -791,7 +794,7 @@ export default function LiveGameScreen({ route, navigation }) {
                 {roundSummary.results.filter(r => r.hit).map((r) => (
                   <View key={r.idx} style={{ alignItems: 'center', width: 86 }}>
                     <View style={{ alignItems: 'center', justifyContent: 'center' }}>
-                      <Halo width={50} style={{ position: 'absolute', top: -22, zIndex: 5 }} />
+                      <Halo width={82} />
                       <View style={[styles.medallionCircle, styles.medallionTurn, { width: 58, height: 58, borderRadius: 29 }]}>
                         <Text style={[styles.medallionInitial, { fontSize: 22 }]}>{r.name[0]?.toUpperCase()}</Text>
                       </View>
