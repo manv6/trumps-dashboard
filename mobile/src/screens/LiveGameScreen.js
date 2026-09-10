@@ -74,12 +74,11 @@ function PulseRing({ size }) {
   );
 }
 
-function Medallion({ name, initial, isTurn, halo, bid, won }) {
+function Medallion({ name, initial, isTurn, bid, won }) {
   return (
     <View style={styles.medallion}>
       <View style={{ alignItems: 'center', justifyContent: 'center' }}>
         {isTurn && <PulseRing size={56} />}
-        {halo && <Halo width={72} />}
         <View style={[styles.medallionCircle, isTurn && styles.medallionTurn]}>
           <Text style={styles.medallionInitial}>{initial}</Text>
         </View>
@@ -264,7 +263,6 @@ export default function LiveGameScreen({ route, navigation }) {
   const [showEnd, setShowEnd] = useState(false);
   const [endDismissed, setEndDismissed] = useState(false);
   const [showScore, setShowScore] = useState(false);
-  const [trickHalo, setTrickHalo] = useState(null); // playerIdx crowned after a trick
   const [roundSummary, setRoundSummary] = useState(null); // { round, results } shown between rounds
   const prevRoundRef = useRef(null);
   const socketRef = useRef(null);
@@ -314,16 +312,6 @@ export default function LiveGameScreen({ route, navigation }) {
       socketRef.current.emit('actual-action', { gameId, action, payload });
     }
   }, [gameId]);
-
-  // Crown the trick winner with a halo for a couple of seconds
-  const completedTrickWinner = actualState?.completedTrick?.winner;
-  const completedTrickCount = (actualState?.tricksWon || []).reduce((a, b) => a + (b || 0), 0);
-  useEffect(() => {
-    if (completedTrickWinner === undefined || completedTrickWinner === null) return;
-    setTrickHalo(completedTrickWinner);
-    const t = setTimeout(() => setTrickHalo(null), 2600);
-    return () => clearTimeout(t);
-  }, [completedTrickWinner, completedTrickCount]);
 
   // When a round finishes (server advanced to the next one), celebrate it:
   // show every player's result with halos + fireworks for the winners.
@@ -719,7 +707,6 @@ export default function LiveGameScreen({ route, navigation }) {
                   name={p.username}
                   initial={p.username[0]?.toUpperCase()}
                   isTurn={turn === idx && phase !== 'game-over'}
-                  halo={trickHalo === idx}
                   bid={predictions[idx]}
                   won={tricksWon[idx]}
                 />
@@ -743,16 +730,6 @@ export default function LiveGameScreen({ route, navigation }) {
                 <Text style={styles.promptTitle}>Το παιχνίδι ολοκληρώθηκε</Text>
               )}
             </View>
-
-            {trickHalo === myIdx && (
-              <View pointerEvents="none" style={styles.myHalo}>
-                <View style={{ width: 56, height: 56, alignItems: 'center', justifyContent: 'center' }}>
-                  <Halo width={56} />
-                  <Text style={{ fontSize: 22 }}>👑</Text>
-                </View>
-                <Text style={styles.myHaloText}>ΝΙΚΗ!</Text>
-              </View>
-            )}
 
             <View style={styles.statStrip}>
               <View style={styles.statCell}>
@@ -852,9 +829,7 @@ const styles = StyleSheet.create({
   chipTextGold: { color: night.gold, fontWeight: '700' },
   connDot: { width: 9, height: 9, borderRadius: 5, marginLeft: 'auto' },
 
-  medallionRow: { flexDirection: 'row', justifyContent: 'center', gap: 26, paddingTop: 24 },
-  myHalo: { position: 'absolute', bottom: 236, alignSelf: 'center', alignItems: 'center', zIndex: 20 },
-  myHaloText: { color: night.goldBright, fontSize: 12, fontWeight: '800', letterSpacing: 2, marginTop: 4 },
+  medallionRow: { flexDirection: 'row', justifyContent: 'center', gap: 26, paddingTop: 14 },
   medallion: { alignItems: 'center', width: 84 },
   medallionCircle: {
     width: 52, height: 52, borderRadius: 26,
