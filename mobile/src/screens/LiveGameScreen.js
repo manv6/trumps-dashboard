@@ -743,6 +743,11 @@ export default function LiveGameScreen({ route, navigation }) {
           </View>
         )}
 
+        {/* fireworks volley on every trick win */}
+        {trickHalo !== null && (
+          <Fireworks key={`trickfx-${completedTrickCount}`} loop={false} bursts={3} sparksPerBurst={10} />
+        )}
+
         {error ? (
           <View style={styles.toast}>
             <Text style={styles.toastText}>{error}</Text>

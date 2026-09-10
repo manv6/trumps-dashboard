@@ -7,21 +7,20 @@ const COLORS = ['#ecd9ad', '#d8b25c', '#e0847a', '#7fc4ec', '#f6efdd', '#4caf7d'
 const CYCLE = 3200; // one full fireworks cycle, then it repeats
 
 // A single spark flying out of a burst, with a touch of gravity.
-function Spark({ delay, angle, dist, color, size, duration }) {
+function Spark({ delay, angle, dist, color, size, duration, loop = true }) {
   const t = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.delay(delay),
-        Animated.timing(t, { toValue: 1, duration, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-        Animated.timing(t, { toValue: 0, duration: 0, useNativeDriver: true }),
-        Animated.delay(Math.max(0, CYCLE - delay - duration)),
-      ])
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [t, delay, duration]);
+    const seq = Animated.sequence([
+      Animated.delay(delay),
+      Animated.timing(t, { toValue: 1, duration, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      Animated.timing(t, { toValue: 0, duration: 0, useNativeDriver: true }),
+      Animated.delay(Math.max(0, CYCLE - delay - duration)),
+    ]);
+    const anim = loop ? Animated.loop(seq) : seq;
+    anim.start();
+    return () => anim.stop();
+  }, [t, delay, duration, loop]);
 
   const dx = Math.cos(angle) * dist;
   const dy = Math.sin(angle) * dist;
@@ -50,14 +49,18 @@ function Spark({ delay, angle, dist, color, size, duration }) {
   );
 }
 
-// Full-screen looping fireworks (pointer-transparent). Mount while celebrating.
-export default function Fireworks({ bursts = 5, sparksPerBurst = 12 }) {
+// Full-screen fireworks (pointer-transparent). Mount while celebrating.
+// loop=true repeats forever (game over); loop=false fires each burst once
+// (trick wins) — unmount when the celebration window closes.
+export default function Fireworks({ bursts = 5, sparksPerBurst = 12, loop = true }) {
   const config = useMemo(() => {
     const list = [];
     for (let b = 0; b < bursts; b++) {
       const cx = W * (0.18 + Math.random() * 0.64);
       const cy = H * (0.12 + Math.random() * 0.38);
-      const delay = b * (CYCLE / (bursts + 1)) + Math.random() * 180;
+      const delay = loop
+        ? b * (CYCLE / (bursts + 1)) + Math.random() * 180
+        : b * 240 + Math.random() * 120; // one-shot: quick volley
       const dist = 60 + Math.random() * 70;
       const color = COLORS[b % COLORS.length];
       const sparks = [];
@@ -74,14 +77,14 @@ export default function Fireworks({ bursts = 5, sparksPerBurst = 12 }) {
       list.push({ cx, cy, delay, sparks });
     }
     return list;
-  }, [bursts, sparksPerBurst]);
+  }, [bursts, sparksPerBurst, loop]);
 
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
       {config.map((burst, b) => (
         <View key={b} style={{ position: 'absolute', left: burst.cx, top: burst.cy }}>
           {burst.sparks.map((s, i) => (
-            <Spark key={i} delay={burst.delay} {...s} />
+            <Spark key={i} delay={burst.delay} loop={loop} {...s} />
           ))}
         </View>
       ))}
