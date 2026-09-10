@@ -265,6 +265,8 @@ export default function LiveGameScreen({ route, navigation }) {
   const [endDismissed, setEndDismissed] = useState(false);
   const [showScore, setShowScore] = useState(false);
   const [trickHalo, setTrickHalo] = useState(null); // playerIdx crowned after a trick
+  const [roundSummary, setRoundSummary] = useState(null); // { round, results } shown between rounds
+  const prevRoundRef = useRef(null);
   const socketRef = useRef(null);
 
   useEffect(() => {
@@ -322,6 +324,39 @@ export default function LiveGameScreen({ route, navigation }) {
     const t = setTimeout(() => setTrickHalo(null), 2600);
     return () => clearTimeout(t);
   }, [completedTrickWinner, completedTrickCount]);
+
+  // When a round finishes (server advanced to the next one), celebrate it:
+  // show every player's result with halos + fireworks for the winners.
+  const liveRoundIdx = actualState?.roundIdx;
+  useEffect(() => {
+    if (liveRoundIdx === undefined || liveRoundIdx === null) return;
+    const prev = prevRoundRef.current;
+    prevRoundRef.current = liveRoundIdx;
+    if (prev === null || liveRoundIdx !== prev + 1) return; // first load or reset
+    const pd = gameData?.gameState?.playerData || [];
+    const results = (gameData?.players || []).map((p, idx) => {
+      const pred = pd[idx]?.predictions?.[prev];
+      const tricks = pd[idx]?.tricks?.[prev];
+      return {
+        idx,
+        name: p.username,
+        pred, tricks,
+        pts: pd[idx]?.points?.[prev] ?? 0,
+        hit: pred !== undefined && pred !== null && pred === tricks,
+      };
+    });
+    // let the last trick's sweep finish before the curtain rises
+    const show = setTimeout(() => setRoundSummary({ round: prev, results }), 800);
+    return () => clearTimeout(show);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveRoundIdx]);
+
+  // auto-dismiss the round celebration
+  useEffect(() => {
+    if (!roundSummary) return;
+    const t = setTimeout(() => setRoundSummary(null), 5200);
+    return () => clearTimeout(t);
+  }, [roundSummary]);
 
   // ---- Derived state ----
   const gameState = gameData?.gameState || {};
@@ -743,9 +778,47 @@ export default function LiveGameScreen({ route, navigation }) {
           </View>
         )}
 
-        {/* fireworks volley on every trick win */}
-        {trickHalo !== null && (
-          <Fireworks key={`trickfx-${completedTrickCount}`} loop={false} bursts={3} sparksPerBurst={10} />
+        {/* round-end celebration: winners with halos + fireworks */}
+        {roundSummary && (
+          <Pressable style={styles.roundOverlay} onPress={() => setRoundSummary(null)}>
+            <Fireworks bursts={7} sparksPerBurst={16} />
+            <View style={styles.roundPanel}>
+              <Text style={styles.roundOverlayTitle}>Γύρος {roundSummary.round + 1} ολοκληρώθηκε</Text>
+              <Text style={styles.roundOverlaySub}>
+                {roundSummary.results.some(r => r.hit) ? 'ΠΕΤΥΧΑΝ ΤΗΝ ΠΡΟΒΛΕΨΗ ΤΟΥΣ' : 'ΚΑΝΕΙΣ ΔΕΝ ΠΕΤΥΧΕ ΤΗΝ ΠΡΟΒΛΕΨΗ'}
+              </Text>
+              <View style={styles.roundWinnersRow}>
+                {roundSummary.results.filter(r => r.hit).map((r) => (
+                  <View key={r.idx} style={{ alignItems: 'center', width: 86 }}>
+                    <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+                      <Halo width={50} style={{ position: 'absolute', top: -22, zIndex: 5 }} />
+                      <View style={[styles.medallionCircle, styles.medallionTurn, { width: 58, height: 58, borderRadius: 29 }]}>
+                        <Text style={[styles.medallionInitial, { fontSize: 22 }]}>{r.name[0]?.toUpperCase()}</Text>
+                      </View>
+                    </View>
+                    <Text style={[styles.medallionName, { color: night.goldBright, marginTop: 7 }]} numberOfLines={1}>
+                      {r.name}{r.idx === myIdx ? ' (εσύ)' : ''}
+                    </Text>
+                    <Text style={styles.roundWinPts}>+{r.pts} π.</Text>
+                  </View>
+                ))}
+              </View>
+              <View style={{ gap: 6, marginTop: 16, alignSelf: 'stretch' }}>
+                {roundSummary.results.map((r) => (
+                  <View key={r.idx} style={styles.roundResultRow}>
+                    <Text style={[styles.roundResultName, r.hit && { color: night.goldBright }]} numberOfLines={1}>
+                      {r.name}{r.idx === myIdx ? ' (εσύ)' : ''}
+                    </Text>
+                    <Text style={styles.roundResultDetail}>
+                      πρόβλεψη {r.pred ?? '—'} · νίκες {r.tricks ?? '—'}
+                    </Text>
+                    <Text style={[styles.roundResultPts, r.hit && { color: night.gold }]}>+{r.pts}</Text>
+                  </View>
+                ))}
+              </View>
+              <Text style={styles.roundOverlayHint}>άγγιξε για συνέχεια</Text>
+            </View>
+          </Pressable>
         )}
 
         {error ? (
@@ -890,6 +963,28 @@ const styles = StyleSheet.create({
   cellPlayer: { width: 96, textAlign: 'center' },
   scoreLegend: { color: night.mutedDark, fontSize: 11, marginTop: 10, textAlign: 'center' },
 
+  roundOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(4,8,7,0.88)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+    zIndex: 50,
+  },
+  roundPanel: { alignItems: 'center', alignSelf: 'stretch', maxWidth: 380 },
+  roundOverlayTitle: { fontFamily: displayFont, color: night.text, fontSize: 26, textAlign: 'center' },
+  roundOverlaySub: { color: night.muted, fontSize: 11, fontWeight: '700', letterSpacing: 2, marginTop: 6, textAlign: 'center' },
+  roundWinnersRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 14, marginTop: 30 },
+  roundWinPts: { fontFamily: displayFont, color: night.gold, fontSize: 17, marginTop: 2 },
+  roundResultRow: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(216,178,92,0.25)',
+    borderRadius: 11, paddingVertical: 8, paddingHorizontal: 13,
+  },
+  roundResultName: { flex: 1, color: night.text, fontWeight: '700', fontSize: 14 },
+  roundResultDetail: { color: night.muted, fontSize: 12, marginRight: 10 },
+  roundResultPts: { fontFamily: displayFont, color: night.text, fontSize: 17, minWidth: 40, textAlign: 'right' },
+  roundOverlayHint: { color: night.mutedDark, fontSize: 11, marginTop: 20 },
   toast: {
     position: 'absolute', top: 60, alignSelf: 'center',
     backgroundColor: night.dangerBg, borderWidth: 1, borderColor: night.dangerBorder,
