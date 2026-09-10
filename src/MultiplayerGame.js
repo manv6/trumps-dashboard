@@ -730,7 +730,7 @@ export default function MultiplayerGame({ gameId, initialGameData, onLeaveGame }
                                   px: 2,
                                   py: 0.5,
                                   fontWeight: "bold",
-                                  color: hit ? "#1b3c20" : "inherit",
+                                  color: hit ? "#ecd9ad" : "inherit",
                                   fontSize: "1.07em",
                                   letterSpacing: "1px",
                                   minWidth: 55,
