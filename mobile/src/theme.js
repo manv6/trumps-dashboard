@@ -29,3 +29,35 @@ export const shadow = {
   shadowRadius: 8,
   elevation: 3,
 };
+
+// Midnight Lounge palette — the live game table design.
+export const night = {
+  bgTop: '#10201d',
+  bgMid: '#0a1412',
+  bgBottom: '#060b0a',
+  gold: '#d8b25c',
+  goldBright: '#ecd9ad',
+  goldDark: '#b8933e',
+  goldSoft: 'rgba(216,178,92,0.14)',
+  goldBorder: 'rgba(216,178,92,0.4)',
+  goldBorderStrong: 'rgba(216,178,92,0.6)',
+  text: '#e8e4d8',
+  muted: '#8ea198',
+  mutedDark: '#6d7f77',
+  glass: 'rgba(255,255,255,0.06)',
+  glassDim: 'rgba(255,255,255,0.04)',
+  tableTop: '#17453a',
+  tableMid: '#0f3129',
+  tableEdge: '#0a221c',
+  cardFace: '#fbfaf6',
+  cardFaceDim: '#e9e5d8',
+  cardRed: '#c22f2f',
+  cardBlack: '#16161a',
+  danger: '#e0a89e',
+  dangerBg: 'rgba(138,74,66,0.35)',
+  dangerBorder: 'rgba(200,110,98,0.5)',
+  panel: 'rgba(16,26,23,0.96)',
+};
+
+// Display font (loaded in App.js via expo-google-fonts)
+export const displayFont = 'Marcellus_400Regular';
