@@ -3,7 +3,7 @@ import { AppBar, Toolbar, Typography, Box, Chip, Button, Avatar } from '@mui/mat
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 
-// Shared top bar: brand → back to lobby, current context, user + logout.
+// Midnight Lounge top bar: gold TRUMPS brand -> lobby, screen context, user + logout.
 export default function AppHeader({ subtitle }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -12,40 +12,45 @@ export default function AppHeader({ subtitle }) {
     <AppBar
       position="sticky"
       elevation={0}
-      sx={{ background: 'linear-gradient(120deg, #063D2E 0%, #0F5F49 100%)' }}
+      sx={{
+        background: 'linear-gradient(180deg, #060b0a 0%, #0d1a17 100%)',
+        borderBottom: '1px solid rgba(216,178,92,0.3)',
+      }}
     >
       <Toolbar sx={{ gap: 1.5 }}>
         <Box
           onClick={() => navigate('/lobby')}
           sx={{ display: 'flex', alignItems: 'center', gap: 1, cursor: 'pointer', userSelect: 'none' }}
         >
-          <Typography component="span" sx={{ color: '#E0B85C', fontSize: '1.5rem', lineHeight: 1 }}>
+          <Typography component="span" sx={{ color: '#d8b25c', fontSize: '1.4rem', lineHeight: 1 }}>
             ♠
           </Typography>
-          <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: '0.5px' }}>
-            Trumps
+          <Typography
+            sx={{ fontFamily: '"Marcellus", Georgia, serif', fontSize: '1.15rem', letterSpacing: '3px', color: '#d8b25c' }}
+          >
+            TRUMPS
           </Typography>
         </Box>
         {subtitle && (
           <Chip
             size="small"
             label={subtitle}
-            sx={{ backgroundColor: 'rgba(255,255,255,0.14)', color: '#fff' }}
+            sx={{ backgroundColor: 'rgba(255,255,255,0.08)', color: '#e8e4d8', border: '1px solid rgba(216,178,92,0.3)' }}
           />
         )}
         <Box sx={{ flexGrow: 1 }} />
         {user && (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Avatar sx={{ width: 30, height: 30, bgcolor: '#C9962E', color: '#241A05', fontSize: '0.9rem', fontWeight: 700 }}>
+              <Avatar sx={{ width: 30, height: 30, bgcolor: '#d8b25c', color: '#241A05', fontSize: '0.9rem', fontWeight: 700 }}>
                 {user.username[0].toUpperCase()}
               </Avatar>
-              <Typography variant="body2" sx={{ fontWeight: 600, display: { xs: 'none', sm: 'block' } }}>
+              <Typography variant="body2" sx={{ fontWeight: 600, color: '#e8e4d8', display: { xs: 'none', sm: 'block' } }}>
                 {user.username}
               </Typography>
             </Box>
-            <Button color="inherit" size="small" onClick={logout} sx={{ opacity: 0.9 }}>
-              Αποσύνδεση
+            <Button size="small" onClick={logout} sx={{ color: '#8ea198' }}>
+              Έξοδος
             </Button>
           </Box>
         )}

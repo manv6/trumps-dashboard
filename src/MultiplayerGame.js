@@ -310,7 +310,7 @@ export default function MultiplayerGame({ gameId, initialGameData, onLeaveGame }
               sx={{ 
                 p: 2, 
                 maxWidth: 300, 
-                backgroundColor: "#f8f9fa",
+                backgroundColor: "rgba(255,255,255,0.04)",
                 border: "1px solid #e0e0e0"
               }}
             >
@@ -323,8 +323,8 @@ export default function MultiplayerGame({ gameId, initialGameData, onLeaveGame }
                   🎯 Βαθμολογία:
                 </Typography>
                 <Typography variant="caption" sx={{ display: "block", lineHeight: 1.3 }}>
-                  • Σωστή πρόβλεψη: Μάζια + 10 πόντοι<br/>
-                  • Λάθος πρόβλεψη: Μόνο τα μάζια
+                  • Σωστή πρόβλεψη: Νίκες + 10 πόντοι<br/>
+                  • Λάθος πρόβλεψη: Μόνο οι νίκες
                 </Typography>
               </Box>
               
@@ -357,7 +357,7 @@ export default function MultiplayerGame({ gameId, initialGameData, onLeaveGame }
                 <Typography variant="caption" sx={{ display: "block", lineHeight: 1.3 }}>
                   • Μόνο τη δική σας στήλη<br/>
                   • Προβλέψεις: τρέχων και μελλοντικοί γύροι<br/>
-                  • Μάζια: μόνο τρέχων γύρος
+                  • Νίκες: μόνο τρέχων γύρος
                 </Typography>
               </Box>
               
@@ -421,7 +421,7 @@ export default function MultiplayerGame({ gameId, initialGameData, onLeaveGame }
             sx={{ 
               position: "sticky", 
               top: 0, 
-              backgroundColor: "#fff", 
+              backgroundColor: "background.paper", 
               zIndex: 10,
               boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
               borderBottom: "2px solid #1976d2",
@@ -550,7 +550,7 @@ export default function MultiplayerGame({ gameId, initialGameData, onLeaveGame }
                       <TableRow 
                         sx={{ 
                           backgroundColor: roundIdx === currentRound ? "#f3e5f5" : 
-                                          roundIdx < currentRound ? "#f5f5f5" : "inherit"
+                                          roundIdx < currentRound ? "rgba(255,255,255,0.05)" : "inherit"
                         }}
                       >
                         <TableCell rowSpan={2} sx={{ 
@@ -657,7 +657,7 @@ export default function MultiplayerGame({ gameId, initialGameData, onLeaveGame }
                                     width: "100%",
                                     '& .MuiInputBase-input': {
                                       backgroundColor: isActive ? "#e3f2fd" :           // Blue for active player (visible to all)
-                                                      !isMyColumn ? "#f5f5f5" : "inherit"  // Gray for others, white for my column
+                                                      !isMyColumn ? "rgba(255,255,255,0.06)" : "inherit"  // dimmed for others
                                     }
                                   }}
                                   helperText={helper}
@@ -693,7 +693,7 @@ export default function MultiplayerGame({ gameId, initialGameData, onLeaveGame }
                                     width: "100%",
                                     '& .MuiInputBase-input': {
                                       backgroundColor: isActive ? "#e3f2fd" :           // Blue for active player (visible to all)
-                                                      !isMyColumn ? "#f5f5f5" : "inherit"  // Gray for others, white for my column
+                                                      !isMyColumn ? "rgba(255,255,255,0.06)" : "inherit"  // dimmed for others
                                     }
                                   }}
                                 />
@@ -843,7 +843,7 @@ export default function MultiplayerGame({ gameId, initialGameData, onLeaveGame }
                                 alignItems: 'center', 
                                 justifyContent: 'space-between',
                                 p: 1,
-                                backgroundColor: isActivePlayer ? '#e3f2fd' : (isMyCard ? '#f8f9fa' : 'white'),
+                                backgroundColor: isActivePlayer ? 'rgba(216,178,92,0.18)' : (isMyCard ? 'rgba(216,178,92,0.08)' : 'rgba(255,255,255,0.04)'),
                                 borderRadius: 1,
                                 border: isLastPlayer ? '2px solid #ff9800' : '1px solid #e0e0e0'
                               }}>
@@ -904,7 +904,7 @@ export default function MultiplayerGame({ gameId, initialGameData, onLeaveGame }
             <Box sx={{ display: { xs: 'none', md: 'block' } }}>
               <Table size="small" sx={{ maxWidth: 500, border: "1px solid #e0e0e0", borderRadius: 2 }}>
                 <TableHead>
-                  <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
+                  <TableRow sx={{ backgroundColor: "rgba(255,255,255,0.06)" }}>
                     <TableCell sx={{ fontWeight: "bold" }}>Κατάταξη</TableCell>
                     <TableCell sx={{ fontWeight: "bold" }}>Παίκτης</TableCell>
                     <TableCell sx={{ fontWeight: "bold" }}>Πόντοι</TableCell>
@@ -916,8 +916,8 @@ export default function MultiplayerGame({ gameId, initialGameData, onLeaveGame }
                       <TableRow 
                         key={i}
                         sx={{ 
-                          '&:nth-of-type(odd)': { backgroundColor: '#f9f9f9' },
-                          '&:first-of-type': { backgroundColor: '#fff3e0', fontWeight: 'bold' }
+                          '&:nth-of-type(odd)': { backgroundColor: 'rgba(255,255,255,0.04)' },
+                          '&:first-of-type': { backgroundColor: 'rgba(216,178,92,0.15)', fontWeight: 'bold' }
                         }}
                       >
                         <TableCell>

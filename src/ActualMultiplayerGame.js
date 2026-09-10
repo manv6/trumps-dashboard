@@ -11,7 +11,7 @@ import AppHeader from './AppHeader';
 // Modern card component
 function PlayingCard({ value, suit, onClick, disabled, selected, small }) {
 	const suitColor = suit === '♥' || suit === '♦' ? '#e53935' : '#222';
-	const bgColor = selected ? '#e3f2fd' : '#fff';
+	const bgColor = '#fbfaf6';
 	return (
 		<Box
 			onClick={disabled ? undefined : onClick}
@@ -20,7 +20,7 @@ function PlayingCard({ value, suit, onClick, disabled, selected, small }) {
 				height: small ? 58 : 80,
 				borderRadius: 2,
 				boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
-				border: selected ? '2px solid #1976d2' : '1px solid #bbb',
+				border: selected ? '2px solid #d8b25c' : '1px solid #bbb',
 				background: bgColor,
 				display: 'flex',
 				flexDirection: 'column',
@@ -166,7 +166,7 @@ export default function ActualMultiplayerGame({ gameId, initialGameData, onLeave
 				{Array(numPlayers).fill(null).map((_, idx) => {
 					const p = players[idx];
 					return (
-						<Paper key={idx} sx={{ p: 2, minWidth: 120, opacity: p ? 1 : 0.5, border: p?.userId === user.id ? '2px solid #0F5F49' : '1px solid #E4E0D5' }}>
+						<Paper key={idx} sx={{ p: 2, minWidth: 120, opacity: p ? 1 : 0.5, border: p?.userId === user.id ? '2px solid #d8b25c' : '1px solid rgba(216,178,92,0.25)' }}>
 							<Avatar sx={{ mx: 'auto', mb: 1, bgcolor: p ? 'primary.main' : '#bdbdbd' }}>
 								{p ? p.username[0].toUpperCase() : '?'}
 							</Avatar>
@@ -218,8 +218,8 @@ export default function ActualMultiplayerGame({ gameId, initialGameData, onLeave
 				{players.map((p, idx) => (
 					<Paper key={idx} sx={{
 						px: 2, py: 1, minWidth: 110,
-						backgroundColor: turn === idx ? 'rgba(201, 150, 46, 0.14)' : '#FAF9F5',
-						border: turn === idx ? '2px solid #C9962E' : (idx === myIdx ? '2px solid #0F5F49' : '1px solid #E4E0D5'),
+						backgroundColor: turn === idx ? 'rgba(216,178,92,0.14)' : 'rgba(255,255,255,0.04)',
+						border: turn === idx ? '2px solid #d8b25c' : (idx === myIdx ? '1.5px solid rgba(216,178,92,0.6)' : '1px solid rgba(216,178,92,0.2)'),
 					}}>
 						<Typography variant="body2" sx={{ fontWeight: 700 }}>
 							{p.username}{idx === myIdx ? ' 👤' : ''}
@@ -258,7 +258,7 @@ export default function ActualMultiplayerGame({ gameId, initialGameData, onLeave
 						})}
 					</Box>
 					{myTurn && isLastPredictor && forbiddenPrediction >= 0 && forbiddenPrediction <= cardsThisRound && (
-						<Typography variant="caption" sx={{ color: '#d1381b', fontWeight: 700 }}>
+						<Typography variant="caption" sx={{ color: '#e0a89e', fontWeight: 700 }}>
 							You bid last — the total cannot equal {cardsThisRound}, so {forbiddenPrediction} is not allowed.
 						</Typography>
 					)}
@@ -358,7 +358,7 @@ export default function ActualMultiplayerGame({ gameId, initialGameData, onLeave
 							<TableCell sx={{ fontWeight: 700 }}>Cards</TableCell>
 							{playerNames.map((name, idx) => (
 								<TableCell key={idx} align="center" colSpan={3}
-									sx={{ fontWeight: 700, color: idx === myIdx ? 'primary.main' : 'text.primary' }}>
+									sx={{ fontWeight: 700, color: idx === myIdx ? '#d8b25c' : 'text.primary' }}>
 									{name}
 								</TableCell>
 							))}
@@ -367,16 +367,16 @@ export default function ActualMultiplayerGame({ gameId, initialGameData, onLeave
 							<TableCell /><TableCell />
 							{playerNames.map((_, idx) => (
 								<React.Fragment key={idx}>
-									<TableCell align="center" sx={{ color: '#666' }}>Π</TableCell>
-									<TableCell align="center" sx={{ color: '#666' }}>Μ</TableCell>
-									<TableCell align="center" sx={{ color: '#666' }}>Pts</TableCell>
+									<TableCell align="center" sx={{ color: 'text.secondary' }}>Π</TableCell>
+									<TableCell align="center" sx={{ color: 'text.secondary' }}>Μ</TableCell>
+									<TableCell align="center" sx={{ color: 'text.secondary' }}>Pts</TableCell>
 								</React.Fragment>
 							))}
 						</TableRow>
 					</TableHead>
 					<TableBody>
 						{rounds.map((cards, rIdx) => (
-							<TableRow key={rIdx} sx={{ backgroundColor: rIdx === roundIdx && !isCompleted ? 'rgba(201, 150, 46, 0.12)' : 'inherit' }}>
+							<TableRow key={rIdx} sx={{ backgroundColor: rIdx === roundIdx && !isCompleted ? 'rgba(216,178,92,0.12)' : 'inherit' }}>
 								<TableCell>{rIdx + 1}</TableCell>
 								<TableCell>{cards}</TableCell>
 								{playerNames.map((_, pIdx) => {
@@ -389,7 +389,7 @@ export default function ActualMultiplayerGame({ gameId, initialGameData, onLeave
 										<React.Fragment key={pIdx}>
 											<TableCell align="center">{pred ?? ''}</TableCell>
 											<TableCell align="center">{tricks ?? ''}</TableCell>
-											<TableCell align="center" sx={{ fontWeight: 700, backgroundColor: hit ? '#e7ffd6' : 'inherit' }}>
+											<TableCell align="center" sx={{ fontWeight: 700, backgroundColor: hit ? 'rgba(216,178,92,0.18)' : 'inherit' }}>
 												{pts ?? ''}
 											</TableCell>
 										</React.Fragment>
@@ -397,7 +397,7 @@ export default function ActualMultiplayerGame({ gameId, initialGameData, onLeave
 								})}
 							</TableRow>
 						))}
-						<TableRow sx={{ backgroundColor: '#f5f5f5' }}>
+						<TableRow sx={{ backgroundColor: 'rgba(255,255,255,0.06)' }}>
 							<TableCell colSpan={2} sx={{ fontWeight: 700 }}>Total</TableCell>
 							{playerNames.map((_, pIdx) => (
 								<TableCell key={pIdx} colSpan={3} align="center" sx={{ fontWeight: 700 }}>
@@ -457,7 +457,7 @@ export default function ActualMultiplayerGame({ gameId, initialGameData, onLeave
 							);
 						})}
 					</Stack>
-					<Typography variant="h6" sx={{ mb: 2, color: '#43a047', fontWeight: 700 }}>
+					<Typography variant="h6" sx={{ mb: 2, color: '#d8b25c', fontWeight: 700 }}>
 						Winner{(finalResult?.winners || []).length > 1 ? 's' : ''}: {(finalResult?.winners || []).join(', ')}
 					</Typography>
 					<Stack direction="row" spacing={2}>

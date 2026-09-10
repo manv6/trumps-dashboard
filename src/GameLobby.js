@@ -427,7 +427,7 @@ export default function GameLobby() {
                               <Typography variant="body2">
                                 {game.playersCount}/{game.maxPlayers}
                                 {game.connectedPlayers !== game.playersCount && (
-                                  <span style={{ color: '#666', fontSize: '0.8em' }}>
+                                  <span style={{ color: '#8ea198', fontSize: '0.8em' }}>
                                     {' '}({game.connectedPlayers} online)
                                   </span>
                                 )}
@@ -488,7 +488,7 @@ export default function GameLobby() {
                         return (
                           <Card key={game.gameId} sx={{ 
                             borderRadius: 2,
-                            border: isUserInGame ? '2px solid #1976d2' : '1px solid #e0e0e0'
+                            border: isUserInGame ? '2px solid #d8b25c' : '1px solid rgba(216,178,92,0.25)'
                           }}>
                             <CardContent sx={{ p: 2 }}>
                               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
