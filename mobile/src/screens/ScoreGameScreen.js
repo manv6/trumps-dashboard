@@ -6,12 +6,12 @@ import io from 'socket.io-client';
 import { useAuth } from '../AuthContext';
 import { SERVER_URL } from '../config';
 import Header from '../components/Header';
-import { Btn, Card, Chip, SectionTitle } from '../components/UI';
-import { colors } from '../theme';
+import { Btn, Card, Chip, SectionTitle, PageBg } from '../components/UI';
+import { night, displayFont } from '../theme';
 
-// Scoreboard mode, mobile-optimized: instead of the huge web table, the phone
-// focuses on ONE round at a time (your Π/Μ inputs + everyone's values) with
-// manual round navigation — same socket protocol as the web app.
+// Scoreboard mode, mobile-optimized: one round at a time (your Π/Μ inputs +
+// everyone's values) with manual round navigation — same socket protocol as
+// the web app, dressed in the Midnight Lounge design.
 export default function ScoreGameScreen({ route, navigation }) {
   const { gameId } = route.params;
   const { user, joinGame } = useAuth();
@@ -96,22 +96,22 @@ export default function ScoreGameScreen({ route, navigation }) {
     });
   };
 
-  if (loading) {
+  if (loading || !gameData) {
     return (
       <View style={styles.page}>
         <Header subtitle={`Σκορ ${gameId}`} onBack={() => navigation.goBack()} />
-        <View style={styles.center}><ActivityIndicator size="large" color={colors.felt} /></View>
-      </View>
-    );
-  }
-
-  if (!gameData) {
-    return (
-      <View style={styles.page}>
-        <Header subtitle={`Σκορ ${gameId}`} onBack={() => navigation.goBack()} />
-        <View style={styles.center}>
-          <Text style={styles.errorBig}>{error || 'Το παιχνίδι δεν βρέθηκε'}</Text>
-          <Btn title="Πίσω στο Lobby" onPress={() => navigation.goBack()} style={{ marginTop: 16 }} />
+        <View style={{ flex: 1 }}>
+          <PageBg />
+          <View style={styles.center}>
+            {loading ? (
+              <ActivityIndicator size="large" color={night.gold} />
+            ) : (
+              <View style={{ alignItems: 'stretch', paddingHorizontal: 24, alignSelf: 'stretch' }}>
+                <Text style={styles.errorBig}>{error || 'Το παιχνίδι δεν βρέθηκε'}</Text>
+                <Btn title="ΠΙΣΩ ΣΤΟ LOBBY" onPress={() => navigation.goBack()} style={{ marginTop: 18 }} />
+              </View>
+            )}
+          </View>
         </View>
       </View>
     );
@@ -123,162 +123,167 @@ export default function ScoreGameScreen({ route, navigation }) {
   return (
     <View style={styles.page}>
       <Header subtitle={`Σκορ ${gameId}`} onBack={() => navigation.goBack()} />
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        <View style={styles.topRow}>
-          <Chip label={`Γύρος ${shownRound + 1}/${rounds.length}`} color="rgba(15,95,73,0.1)" textColor={colors.felt} />
-          <Chip label={`${cards} φύλλα`} color={colors.divider} />
-          <Chip label={`Σύνολο προβλ: ${sumPreds}`} color={colors.goldSoft} textColor={colors.gold} />
-          <Chip
-            label={connected ? '● live' : '○ εκτός'}
-            color={connected ? 'rgba(46,125,50,0.12)' : 'rgba(179,38,30,0.12)'}
-            textColor={connected ? colors.success : colors.error}
-          />
-        </View>
-        {shownRound !== currentRound && (
-          <Text style={styles.viewingPast}>Βλέπεις τον γύρο {shownRound + 1} (τρέχων: {currentRound + 1})</Text>
-        )}
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+      <View style={{ flex: 1 }}>
+        <PageBg />
+        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+          <View style={styles.topRow}>
+            <Chip label={`Γύρος ${shownRound + 1}/${rounds.length}`} />
+            <Chip label={`${cards} φύλλα`} />
+            <Chip gold label={`Σύνολο προβλ: ${sumPreds}`} />
+            <View style={[styles.connDot, { backgroundColor: connected ? '#4caf7d' : '#c0564c' }]} />
+          </View>
+          {shownRound !== currentRound && (
+            <Text style={styles.viewingPast}>Βλέπεις τον γύρο {shownRound + 1} (τρέχων: {currentRound + 1})</Text>
+          )}
+          {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        {/* Round editor */}
-        <Card style={styles.section}>
-          <SectionTitle>Γύρος {shownRound + 1} — Πρώτος: {players[firstPlayerIdx]?.username || '—'}</SectionTitle>
-          {players.map((p, idx) => {
-            const pd = playerData[idx] || {};
-            const pred = pd.predictions?.[shownRound];
-            const tricks = pd.tricks?.[shownRound];
-            const pts = pd.points?.[shownRound];
-            const mine = idx === myIdx;
-            const isLast = idx === lastPlayerIdx;
-            return (
-              <View key={idx} style={[styles.playerRow, mine && styles.playerRowMine, isLast && styles.playerRowLast]}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.playerName} numberOfLines={1}>
-                    {p.username}{mine ? ' 👤' : ''}{isLast ? ' 🔶' : ''}
+          {/* Round editor */}
+          <Card style={styles.section}>
+            <SectionTitle>Γύρος {shownRound + 1} — Πρώτος: {players[firstPlayerIdx]?.username || '—'}</SectionTitle>
+            {players.map((p, idx) => {
+              const pd = playerData[idx] || {};
+              const pred = pd.predictions?.[shownRound];
+              const tricks = pd.tricks?.[shownRound];
+              const pts = pd.points?.[shownRound];
+              const mine = idx === myIdx;
+              const isLast = idx === lastPlayerIdx;
+              return (
+                <View key={idx} style={[styles.playerRow, mine && styles.playerRowMine, isLast && styles.playerRowLast]}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.playerName, mine && { color: night.gold }]} numberOfLines={1}>
+                      {p.username}{mine ? ' (εσύ)' : ''}{isLast ? ' · τελευταίος' : ''}
+                    </Text>
+                    {pts !== undefined && (
+                      <Text style={styles.playerPts}>{pts} πόντοι αυτόν τον γύρο</Text>
+                    )}
+                  </View>
+                  <View style={styles.inputPair}>
+                    <View style={styles.inputBox}>
+                      <Text style={styles.inputLabel}>Π</Text>
+                      <TextInput
+                        style={[styles.input, !mine && styles.inputReadonly]}
+                        editable={mine}
+                        keyboardType="number-pad"
+                        maxLength={2}
+                        placeholderTextColor={night.mutedDark}
+                        value={mine && drafts[`pred-${shownRound}`] !== undefined
+                          ? drafts[`pred-${shownRound}`]
+                          : (pred !== undefined && pred !== null ? String(pred) : '')}
+                        onChangeText={(v) => setDrafts((d) => ({ ...d, [`pred-${shownRound}`]: v }))}
+                        onEndEditing={(e) => {
+                          submitValue('pred', e.nativeEvent.text.trim());
+                          setDrafts((d) => { const n = { ...d }; delete n[`pred-${shownRound}`]; return n; });
+                        }}
+                      />
+                    </View>
+                    <View style={styles.inputBox}>
+                      <Text style={styles.inputLabel}>Ν</Text>
+                      <TextInput
+                        style={[styles.input, !mine && styles.inputReadonly]}
+                        editable={mine}
+                        keyboardType="number-pad"
+                        maxLength={2}
+                        placeholderTextColor={night.mutedDark}
+                        value={mine && drafts[`tricks-${shownRound}`] !== undefined
+                          ? drafts[`tricks-${shownRound}`]
+                          : (tricks !== undefined && tricks !== null ? String(tricks) : '')}
+                        onChangeText={(v) => setDrafts((d) => ({ ...d, [`tricks-${shownRound}`]: v }))}
+                        onEndEditing={(e) => {
+                          submitValue('tricks', e.nativeEvent.text.trim());
+                          setDrafts((d) => { const n = { ...d }; delete n[`tricks-${shownRound}`]; return n; });
+                        }}
+                      />
+                    </View>
+                  </View>
+                </View>
+              );
+            })}
+            <Text style={styles.legend}>Π πρόβλεψη · Ν νίκες · ο τελευταίος δεν μπορεί να κάνει το σύνολο ίσο με τα φύλλα</Text>
+          </Card>
+
+          {/* Round navigation */}
+          <View style={styles.navRow}>
+            <Btn
+              title="‹ ΠΡΟΗΓ."
+              variant="outline"
+              small
+              disabled={shownRound === 0}
+              onPress={() => setViewRound(shownRound - 1)}
+            />
+            {shownRound !== currentRound ? (
+              <Btn title="ΤΡΕΧΩΝ ΓΥΡΟΣ" small onPress={() => setViewRound(null)} />
+            ) : (
+              <Btn
+                title="ΕΠΟΜΕΝΟΣ ΓΥΡΟΣ ›"
+                small
+                disabled={currentRound >= rounds.length}
+                onPress={() => { sendAction('advance-round'); setViewRound(null); }}
+              />
+            )}
+            {shownRound === currentRound && currentRound > 0 && (
+              <Btn
+                title="‹ ΠΙΣΩ ΓΥΡΟ"
+                variant="danger"
+                small
+                onPress={() => { sendAction('go-back-round'); setViewRound(null); }}
+              />
+            )}
+          </View>
+
+          {/* Standings */}
+          <Card style={styles.section}>
+            <SectionTitle>Κατάταξη</SectionTitle>
+            {players
+              .map((p, idx) => ({ name: p.username, pts: totalPoints(idx), idx }))
+              .sort((a, b) => b.pts - a.pts)
+              .map((row, rank) => (
+                <View key={row.idx} style={[styles.standRow, rank === 0 && styles.standRowFirst]}>
+                  <Text style={[styles.standRank, rank === 0 && { color: night.gold }]}>{rank + 1}</Text>
+                  <Text style={[styles.standName, row.idx === myIdx && { color: night.gold }]}>
+                    {row.name}{row.idx === myIdx ? ' (εσύ)' : ''}
                   </Text>
-                  {pts !== undefined && (
-                    <Text style={styles.playerPts}>{pts} πόντοι αυτόν τον γύρο</Text>
-                  )}
+                  <Text style={[styles.standPts, rank === 0 && { color: night.gold }]}>{row.pts} π.</Text>
                 </View>
-                <View style={styles.inputPair}>
-                  <View style={styles.inputBox}>
-                    <Text style={styles.inputLabel}>Π</Text>
-                    <TextInput
-                      style={[styles.input, !mine && styles.inputReadonly]}
-                      editable={mine}
-                      keyboardType="number-pad"
-                      maxLength={2}
-                      value={mine && drafts[`pred-${shownRound}`] !== undefined
-                        ? drafts[`pred-${shownRound}`]
-                        : (pred !== undefined && pred !== null ? String(pred) : '')}
-                      onChangeText={(v) => setDrafts((d) => ({ ...d, [`pred-${shownRound}`]: v }))}
-                      onEndEditing={(e) => {
-                        submitValue('pred', e.nativeEvent.text.trim());
-                        setDrafts((d) => { const n = { ...d }; delete n[`pred-${shownRound}`]; return n; });
-                      }}
-                    />
-                  </View>
-                  <View style={styles.inputBox}>
-                    <Text style={styles.inputLabel}>Μ</Text>
-                    <TextInput
-                      style={[styles.input, !mine && styles.inputReadonly]}
-                      editable={mine}
-                      keyboardType="number-pad"
-                      maxLength={2}
-                      value={mine && drafts[`tricks-${shownRound}`] !== undefined
-                        ? drafts[`tricks-${shownRound}`]
-                        : (tricks !== undefined && tricks !== null ? String(tricks) : '')}
-                      onChangeText={(v) => setDrafts((d) => ({ ...d, [`tricks-${shownRound}`]: v }))}
-                      onEndEditing={(e) => {
-                        submitValue('tricks', e.nativeEvent.text.trim());
-                        setDrafts((d) => { const n = { ...d }; delete n[`tricks-${shownRound}`]; return n; });
-                      }}
-                    />
-                  </View>
-                </View>
-              </View>
-            );
-          })}
-          <Text style={styles.legend}>👤 εσύ · 🔶 τελευταίος (δεν μπορεί σύνολο = φύλλα) · Π πρόβλεψη · Μ νίκες</Text>
-        </Card>
-
-        {/* Round navigation */}
-        <View style={styles.navRow}>
-          <Btn
-            title="‹ Προηγ."
-            variant="outline"
-            small
-            disabled={shownRound === 0}
-            onPress={() => setViewRound(shownRound - 1)}
-          />
-          {shownRound !== currentRound ? (
-            <Btn title="Τρέχων γύρος" variant="gold" small onPress={() => setViewRound(null)} />
-          ) : (
-            <Btn
-              title="Επόμενος γύρος ›"
-              small
-              disabled={currentRound >= rounds.length}
-              onPress={() => { sendAction('advance-round'); setViewRound(null); }}
-            />
-          )}
-          {shownRound === currentRound && currentRound > 0 && (
-            <Btn
-              title="‹ Πίσω γύρο"
-              variant="danger"
-              small
-              onPress={() => { sendAction('go-back-round'); setViewRound(null); }}
-            />
-          )}
-        </View>
-
-        {/* Standings */}
-        <Card style={styles.section}>
-          <SectionTitle>🏆 Κατάταξη</SectionTitle>
-          {players
-            .map((p, idx) => ({ name: p.username, pts: totalPoints(idx), idx }))
-            .sort((a, b) => b.pts - a.pts)
-            .map((row, rank) => (
-              <View key={row.idx} style={styles.standRow}>
-                <Text style={styles.standRank}>{rank === 0 ? '🥇' : rank === 1 ? '🥈' : rank === 2 ? '🥉' : rank + 1}</Text>
-                <Text style={[styles.standName, row.idx === myIdx && { color: colors.felt }]}>{row.name}</Text>
-                <Text style={styles.standPts}>{row.pts} π.</Text>
-              </View>
-            ))}
-        </Card>
-      </ScrollView>
+              ))}
+          </Card>
+        </ScrollView>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  page: { flex: 1, backgroundColor: colors.ivory },
+  page: { flex: 1, backgroundColor: night.bgBottom },
   scroll: { padding: 16, paddingBottom: 40 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  errorBig: { color: colors.error, fontSize: 16, fontWeight: '600', textAlign: 'center' },
-  topRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
-  viewingPast: { color: colors.warning, fontWeight: '600', marginBottom: 8, fontSize: 12 },
-  error: { color: colors.warning, fontWeight: '600', marginBottom: 10 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  errorBig: { color: night.danger, fontSize: 16, fontWeight: '600', textAlign: 'center' },
+  topRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBottom: 12 },
+  connDot: { width: 9, height: 9, borderRadius: 5, marginLeft: 'auto' },
+  viewingPast: { color: night.gold, fontWeight: '600', marginBottom: 8, fontSize: 12 },
+  error: { color: night.danger, fontWeight: '600', marginBottom: 10 },
   section: { marginBottom: 14 },
   playerRow: {
-    flexDirection: 'row', alignItems: 'center', paddingVertical: 8,
-    borderTopWidth: 1, borderTopColor: colors.divider,
+    flexDirection: 'row', alignItems: 'center', paddingVertical: 9,
+    borderTopWidth: 1, borderTopColor: 'rgba(216,178,92,0.15)',
   },
-  playerRowMine: { backgroundColor: 'rgba(15,95,73,0.05)' },
-  playerRowLast: { borderLeftWidth: 3, borderLeftColor: colors.gold, paddingLeft: 6 },
-  playerName: { fontWeight: '700', color: colors.text },
-  playerPts: { fontSize: 11, color: colors.textMuted },
+  playerRowMine: { backgroundColor: 'rgba(216,178,92,0.06)' },
+  playerRowLast: { borderLeftWidth: 3, borderLeftColor: night.gold, paddingLeft: 8 },
+  playerName: { fontWeight: '700', color: night.text, fontSize: 14 },
+  playerPts: { fontSize: 11, color: night.muted, marginTop: 1 },
   inputPair: { flexDirection: 'row', gap: 8 },
   inputBox: { alignItems: 'center' },
-  inputLabel: { fontSize: 10, fontWeight: '700', color: colors.textMuted },
+  inputLabel: { fontSize: 10, fontWeight: '700', color: night.muted, marginBottom: 2 },
   input: {
-    width: 48, height: 42, borderWidth: 1, borderColor: colors.divider, borderRadius: 8,
-    textAlign: 'center', fontSize: 16, fontWeight: '700', color: colors.text,
-    backgroundColor: colors.paper,
+    width: 48, height: 44, borderWidth: 1, borderColor: night.goldBorderStrong, borderRadius: 10,
+    textAlign: 'center', fontSize: 17, fontWeight: '700', color: night.text,
+    backgroundColor: 'rgba(0,0,0,0.3)',
   },
-  inputReadonly: { backgroundColor: colors.paperAlt, color: colors.textMuted },
-  legend: { fontSize: 11, color: colors.textMuted, marginTop: 10 },
+  inputReadonly: { backgroundColor: night.glassDim, borderColor: 'rgba(216,178,92,0.2)', color: night.muted },
+  legend: { fontSize: 11, color: night.mutedDark, marginTop: 12, lineHeight: 16 },
   navRow: { flexDirection: 'row', gap: 8, marginBottom: 14, flexWrap: 'wrap' },
-  standRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6 },
-  standRank: { width: 34, fontSize: 16 },
-  standName: { flex: 1, fontWeight: '700', color: colors.text },
-  standPts: { fontWeight: '800', color: colors.text },
+  standRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8 },
+  standRowFirst: { backgroundColor: night.goldSoft, borderRadius: 10, paddingHorizontal: 8, marginHorizontal: -8 },
+  standRank: { width: 30, fontFamily: displayFont, fontSize: 17, color: night.muted },
+  standName: { flex: 1, fontWeight: '700', color: night.text },
+  standPts: { fontFamily: displayFont, color: night.text, fontSize: 17 },
 });

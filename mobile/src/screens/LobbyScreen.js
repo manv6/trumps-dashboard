@@ -4,8 +4,8 @@ import {
 } from 'react-native';
 import { useAuth } from '../AuthContext';
 import Header from '../components/Header';
-import { Btn, Card, Chip, Field, SectionTitle } from '../components/UI';
-import { colors } from '../theme';
+import { Btn, Card, Chip, Field, SectionTitle, PageBg } from '../components/UI';
+import { night, displayFont } from '../theme';
 
 const screenFor = (mode) => (mode === 'actual' ? 'LiveGame' : 'ScoreGame');
 
@@ -69,173 +69,177 @@ export default function LobbyScreen({ navigation }) {
   return (
     <View style={styles.page}>
       <Header subtitle="Lobby" />
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-      >
-        <Text style={styles.welcome}>Καλώς ήρθες, {user.username} 👋</Text>
+      <View style={{ flex: 1 }}>
+        <PageBg />
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={night.gold} />}
+        >
+          <Text style={styles.welcome}>Καλώς ήρθες, {user.username}</Text>
 
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+          {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        {current && (
-          <Card style={styles.currentCard}>
-            <Text style={styles.currentText}>Είσαι στο παιχνίδι <Text style={styles.bold}>{current.gameId}</Text></Text>
-            <Btn
-              title="Επιστροφή στο παιχνίδι"
-              variant="gold"
-              small
-              onPress={() => navigation.navigate(screenFor(current.mode), { gameId: current.gameId })}
-            />
-          </Card>
-        )}
+          {current && (
+            <Card style={styles.currentCard}>
+              <Text style={styles.currentText}>
+                Κάθεσαι στο τραπέζι <Text style={styles.currentCode}>{current.gameId}</Text>
+              </Text>
+              <Btn
+                title="ΕΠΙΣΤΡΟΦΗ"
+                small
+                onPress={() => navigation.navigate(screenFor(current.mode), { gameId: current.gameId })}
+              />
+            </Card>
+          )}
 
-        {/* Create game */}
-        <Card style={styles.section}>
-          <SectionTitle>Νέο Παιχνίδι</SectionTitle>
-          <View style={styles.modeRow}>
-            <TouchableOpacity
-              style={[styles.modeBtn, gameMode === 'actual' && styles.modeBtnActive]}
-              onPress={() => setGameMode('actual')}
-            >
-              <Text style={[styles.modeText, gameMode === 'actual' && styles.modeTextActive]}>🃏 Live Κάρτες</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.modeBtn, gameMode === 'normal' && styles.modeBtnActive]}
-              onPress={() => setGameMode('normal')}
-            >
-              <Text style={[styles.modeText, gameMode === 'normal' && styles.modeTextActive]}>📊 Μόνο Σκορ</Text>
-            </TouchableOpacity>
-          </View>
-          <Text style={styles.modeHint}>
-            {gameMode === 'actual'
-              ? 'Οι κάρτες μοιράζονται και παίζονται online, σε πραγματικό χρόνο'
-              : 'Κράτα σκορ ενώ παίζετε με αληθινή τράπουλα'}
-          </Text>
-
-          <View style={styles.stepperRow}>
-            <Text style={styles.stepperLabel}>Παίκτες</Text>
-            <View style={styles.stepper}>
-              <TouchableOpacity style={styles.stepBtn} onPress={() => setNumPlayers((n) => Math.max(2, n - 1))}>
-                <Text style={styles.stepBtnText}>−</Text>
+          {/* Create game */}
+          <Card style={styles.section}>
+            <SectionTitle>Νέο Τραπέζι</SectionTitle>
+            <View style={styles.modeRow}>
+              <TouchableOpacity
+                style={[styles.modeBtn, gameMode === 'actual' && styles.modeBtnActive]}
+                onPress={() => setGameMode('actual')}
+              >
+                <Text style={[styles.modeText, gameMode === 'actual' && styles.modeTextActive]}>♠ Live Κάρτες</Text>
               </TouchableOpacity>
-              <Text style={styles.stepValue}>{numPlayers}</Text>
-              <TouchableOpacity style={styles.stepBtn} onPress={() => setNumPlayers((n) => Math.min(8, n + 1))}>
-                <Text style={styles.stepBtnText}>+</Text>
+              <TouchableOpacity
+                style={[styles.modeBtn, gameMode === 'normal' && styles.modeBtnActive]}
+                onPress={() => setGameMode('normal')}
+              >
+                <Text style={[styles.modeText, gameMode === 'normal' && styles.modeTextActive]}>Μόνο Σκορ</Text>
               </TouchableOpacity>
             </View>
-          </View>
+            <Text style={styles.modeHint}>
+              {gameMode === 'actual'
+                ? 'Οι κάρτες μοιράζονται και παίζονται online, σε πραγματικό χρόνο'
+                : 'Κράτα σκορ ενώ παίζετε με αληθινή τράπουλα'}
+            </Text>
 
-          <Btn title="Δημιουργία Παιχνιδιού" onPress={handleCreate} loading={busy} />
-        </Card>
+            <View style={styles.stepperRow}>
+              <Text style={styles.stepperLabel}>Παίκτες</Text>
+              <View style={styles.stepper}>
+                <TouchableOpacity style={styles.stepBtn} onPress={() => setNumPlayers((n) => Math.max(2, n - 1))}>
+                  <Text style={styles.stepBtnText}>−</Text>
+                </TouchableOpacity>
+                <Text style={styles.stepValue}>{numPlayers}</Text>
+                <TouchableOpacity style={styles.stepBtn} onPress={() => setNumPlayers((n) => Math.min(8, n + 1))}>
+                  <Text style={styles.stepBtnText}>+</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
 
-        {/* Join by code */}
-        <Card style={styles.section}>
-          <SectionTitle>Μπες με Κωδικό</SectionTitle>
-          <View style={styles.joinRow}>
-            <Field
-              placeholder="π.χ. AB12CD34"
-              value={joinCode}
-              onChangeText={(v) => setJoinCode(v.toUpperCase())}
-              autoCapitalize="characters"
-              style={{ flex: 1, marginRight: 10 }}
-            />
-            <Btn
-              title="Μπες"
-              variant="outline"
-              disabled={!joinCode.trim()}
-              onPress={() => handleJoin(joinCode.trim(), null)}
-            />
-          </View>
-        </Card>
+            <Btn title="ΔΗΜΙΟΥΡΓΙΑ ΤΡΑΠΕΖΙΟΥ" onPress={handleCreate} loading={busy} />
+          </Card>
 
-        {/* Available games */}
-        <Card style={styles.section}>
-          <View style={styles.listHeader}>
-            <SectionTitle style={{ marginBottom: 0 }}>Διαθέσιμα Παιχνίδια</SectionTitle>
-            <TouchableOpacity onPress={() => navigation.navigate('History')}>
-              <Text style={styles.historyLink}>Ιστορικό ›</Text>
-            </TouchableOpacity>
-          </View>
+          {/* Join by code */}
+          <Card style={styles.section}>
+            <SectionTitle>Μπες με Κωδικό</SectionTitle>
+            <View style={styles.joinRow}>
+              <Field
+                placeholder="π.χ. AB12CD34"
+                value={joinCode}
+                onChangeText={(v) => setJoinCode(v.toUpperCase())}
+                autoCapitalize="characters"
+                style={{ flex: 1, marginRight: 10, letterSpacing: 2 }}
+              />
+              <Btn
+                title="ΜΠΕΣ"
+                variant="outline"
+                disabled={!joinCode.trim()}
+                onPress={() => handleJoin(joinCode.trim(), null)}
+              />
+            </View>
+          </Card>
 
-          {games.length === 0 ? (
-            <Text style={styles.empty}>Κανένα ενεργό παιχνίδι. Φτιάξε ένα!</Text>
-          ) : (
-            games.map((game) => {
-              const isMine = game.playerIds?.includes(user.id);
-              const full = game.spotsAvailable === 0;
-              return (
-                <View key={game.gameId} style={styles.gameRow}>
-                  <View style={{ flex: 1 }}>
-                    <View style={styles.gameIdRow}>
-                      <Text style={styles.gameId}>{game.gameId}</Text>
-                      {game.mode === 'actual' && (
-                        <Chip label="🃏 LIVE" color={colors.goldSoft} textColor={colors.gold} style={{ marginLeft: 8 }} />
-                      )}
-                      {isMine && (
-                        <Chip label="ΕΙΣΑΙ ΜΕΣΑ" color="rgba(15,95,73,0.12)" textColor={colors.felt} style={{ marginLeft: 8 }} />
-                      )}
+          {/* Available games */}
+          <Card style={styles.section}>
+            <View style={styles.listHeader}>
+              <SectionTitle style={{ marginBottom: 0 }}>Ανοιχτά Τραπέζια</SectionTitle>
+              <TouchableOpacity onPress={() => navigation.navigate('History')}>
+                <Text style={styles.historyLink}>Ιστορικό ›</Text>
+              </TouchableOpacity>
+            </View>
+
+            {games.length === 0 ? (
+              <Text style={styles.empty}>Κανένα ανοιχτό τραπέζι. Άνοιξε ένα!</Text>
+            ) : (
+              games.map((game) => {
+                const isMine = game.playerIds?.includes(user.id);
+                const full = game.spotsAvailable === 0;
+                return (
+                  <View key={game.gameId} style={styles.gameRow}>
+                    <View style={{ flex: 1 }}>
+                      <View style={styles.gameIdRow}>
+                        <Text style={styles.gameId}>{game.gameId}</Text>
+                        {game.mode === 'actual' && (
+                          <Chip gold label="♠ LIVE" style={{ marginLeft: 8, paddingVertical: 2 }} />
+                        )}
+                        {isMine && (
+                          <Chip label="ΕΙΣΑΙ ΜΕΣΑ" style={{ marginLeft: 8, paddingVertical: 2 }} />
+                        )}
+                      </View>
+                      <Text style={styles.gameMeta}>
+                        {game.hostUsername} · {game.playersCount}/{game.maxPlayers} παίκτες ·{' '}
+                        {game.isStarted ? `Γύρος ${game.currentRound}/${game.totalRounds}` : 'Αναμονή'}
+                      </Text>
                     </View>
-                    <Text style={styles.gameMeta}>
-                      {game.hostUsername} · {game.playersCount}/{game.maxPlayers} παίκτες ·{' '}
-                      {game.isStarted ? `Γύρος ${game.currentRound}/${game.totalRounds}` : 'Αναμονή'}
-                    </Text>
+                    <Btn
+                      title={isMine ? 'ΜΠΕΣ' : full ? 'ΠΛΗΡΕΣ' : 'ΜΠΕΣ'}
+                      variant={isMine ? 'primary' : 'outline'}
+                      small
+                      disabled={!isMine && (full || (current && current.gameId !== game.gameId))}
+                      onPress={() => handleJoin(game.gameId, game.mode)}
+                    />
                   </View>
-                  <Btn
-                    title={isMine ? 'Μπες' : full ? 'Πλήρες' : 'Μπες'}
-                    variant={isMine ? 'gold' : 'outline'}
-                    small
-                    disabled={!isMine && (full || (current && current.gameId !== game.gameId))}
-                    onPress={() => handleJoin(game.gameId, game.mode)}
-                  />
-                </View>
-              );
-            })
-          )}
-        </Card>
-      </ScrollView>
+                );
+              })
+            )}
+          </Card>
+        </ScrollView>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  page: { flex: 1, backgroundColor: colors.ivory },
+  page: { flex: 1, backgroundColor: night.bgBottom },
   scroll: { padding: 16, paddingBottom: 40 },
-  welcome: { fontSize: 20, fontWeight: '700', color: colors.text, marginBottom: 12 },
-  error: { color: colors.error, fontWeight: '600', marginBottom: 10 },
+  welcome: { fontFamily: displayFont, fontSize: 22, color: night.text, marginBottom: 14 },
+  error: { color: night.danger, fontWeight: '600', marginBottom: 10 },
   currentCard: {
-    marginBottom: 14, backgroundColor: colors.goldSoft, borderColor: colors.gold,
+    marginBottom: 14, backgroundColor: night.goldSoft, borderColor: night.gold,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
   },
-  currentText: { color: colors.text, flex: 1, marginRight: 10 },
-  bold: { fontWeight: '800' },
+  currentText: { color: night.text, flex: 1, marginRight: 10, fontSize: 13 },
+  currentCode: { color: night.gold, fontWeight: '800', letterSpacing: 1 },
   section: { marginBottom: 14 },
   modeRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
   modeBtn: {
-    flex: 1, borderWidth: 1.5, borderColor: colors.divider, borderRadius: 10,
-    paddingVertical: 10, alignItems: 'center',
+    flex: 1, borderWidth: 1.5, borderColor: 'rgba(216,178,92,0.25)', borderRadius: 11,
+    paddingVertical: 11, alignItems: 'center', backgroundColor: night.glassDim,
   },
-  modeBtnActive: { borderColor: colors.felt, backgroundColor: 'rgba(15,95,73,0.08)' },
-  modeText: { fontWeight: '600', color: colors.textMuted },
-  modeTextActive: { color: colors.felt, fontWeight: '700' },
-  modeHint: { color: colors.textMuted, fontSize: 12, marginBottom: 14 },
+  modeBtnActive: { borderColor: night.gold, backgroundColor: night.goldSoft },
+  modeText: { fontWeight: '600', color: night.mutedDark, fontSize: 13 },
+  modeTextActive: { color: night.gold, fontWeight: '700' },
+  modeHint: { color: night.mutedDark, fontSize: 12, marginBottom: 14 },
   stepperRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
-  stepperLabel: { fontSize: 16, fontWeight: '600', color: colors.text },
+  stepperLabel: { fontSize: 15, fontWeight: '600', color: night.text },
   stepper: { flexDirection: 'row', alignItems: 'center' },
   stepBtn: {
-    width: 38, height: 38, borderRadius: 10, borderWidth: 1.5, borderColor: colors.felt,
-    alignItems: 'center', justifyContent: 'center',
+    width: 40, height: 40, borderRadius: 20, borderWidth: 1.5, borderColor: night.goldBorderStrong,
+    backgroundColor: night.glass, alignItems: 'center', justifyContent: 'center',
   },
-  stepBtnText: { fontSize: 20, fontWeight: '700', color: colors.felt, marginTop: -2 },
-  stepValue: { fontSize: 18, fontWeight: '800', color: colors.text, marginHorizontal: 16 },
+  stepBtnText: { fontSize: 20, fontWeight: '700', color: night.gold, marginTop: -2 },
+  stepValue: { fontFamily: displayFont, fontSize: 22, color: night.text, marginHorizontal: 18 },
   joinRow: { flexDirection: 'row', alignItems: 'center' },
   listHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
-  historyLink: { color: colors.felt, fontWeight: '700' },
-  empty: { color: colors.textMuted, paddingVertical: 8 },
+  historyLink: { color: night.gold, fontWeight: '700', fontSize: 13 },
+  empty: { color: night.mutedDark, paddingVertical: 8 },
   gameRow: {
-    flexDirection: 'row', alignItems: 'center', paddingVertical: 10,
-    borderTopWidth: 1, borderTopColor: colors.divider,
+    flexDirection: 'row', alignItems: 'center', paddingVertical: 11,
+    borderTopWidth: 1, borderTopColor: 'rgba(216,178,92,0.15)',
   },
-  gameIdRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 2 },
-  gameId: { fontWeight: '800', fontSize: 15, color: colors.text, fontVariant: ['tabular-nums'] },
-  gameMeta: { color: colors.textMuted, fontSize: 12 },
+  gameIdRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 3 },
+  gameId: { fontWeight: '800', fontSize: 15, color: night.gold, letterSpacing: 1 },
+  gameMeta: { color: night.muted, fontSize: 12 },
 });

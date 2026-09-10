@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, RefreshControl } from 'react-native';
 import { useAuth } from '../AuthContext';
 import Header from '../components/Header';
-import { Card, Chip } from '../components/UI';
-import { colors } from '../theme';
+import { Card, Chip, PageBg } from '../components/UI';
+import { night, displayFont } from '../theme';
 
 export default function HistoryScreen({ navigation }) {
   const { getActualGameHistory } = useAuth();
@@ -28,48 +28,47 @@ export default function HistoryScreen({ navigation }) {
   return (
     <View style={styles.page}>
       <Header subtitle="Ιστορικό" onBack={() => navigation.goBack()} />
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-      >
-        <Text style={styles.title}>🃏 Ολοκληρωμένα Live Παιχνίδια</Text>
-        {loaded && games.length === 0 && (
-          <Card><Text style={styles.empty}>Κανένα ολοκληρωμένο παιχνίδι ακόμα.</Text></Card>
-        )}
-        {games.map((game, idx) => (
-          <Card key={game.gameId || idx} style={styles.gameCard}>
-            <View style={styles.rowBetween}>
-              <Text style={styles.gameId}>{game.gameId}</Text>
-              <Text style={styles.date}>
-                {game.completedAt ? new Date(game.completedAt).toLocaleDateString('el-GR') : ''}
-              </Text>
-            </View>
-            <Text style={styles.players}>{(game.playerNames || []).join(', ')}</Text>
-            <View style={styles.resultRow}>
-              <Chip
-                label={`🏆 ${(game.winners || []).join(', ') || '—'}`}
-                color={colors.goldSoft}
-                textColor={colors.gold}
-              />
-              <Text style={styles.scores}>{(game.scores || []).join(' · ')}</Text>
-            </View>
-          </Card>
-        ))}
-      </ScrollView>
+      <View style={{ flex: 1 }}>
+        <PageBg />
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={night.gold} />}
+        >
+          <Text style={styles.title}>Ολοκληρωμένα Παιχνίδια</Text>
+          {loaded && games.length === 0 && (
+            <Card><Text style={styles.empty}>Κανένα ολοκληρωμένο παιχνίδι ακόμα.</Text></Card>
+          )}
+          {games.map((game, idx) => (
+            <Card key={game.gameId || idx} style={styles.gameCard}>
+              <View style={styles.rowBetween}>
+                <Text style={styles.gameId}>{game.gameId}</Text>
+                <Text style={styles.date}>
+                  {game.completedAt ? new Date(game.completedAt).toLocaleDateString('el-GR') : ''}
+                </Text>
+              </View>
+              <Text style={styles.players}>{(game.playerNames || []).join(', ')}</Text>
+              <View style={styles.resultRow}>
+                <Chip gold label={`Νικητής: ${(game.winners || []).join(', ') || '—'}`} />
+                <Text style={styles.scores}>{(game.scores || []).join(' · ')}</Text>
+              </View>
+            </Card>
+          ))}
+        </ScrollView>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  page: { flex: 1, backgroundColor: colors.ivory },
+  page: { flex: 1, backgroundColor: night.bgBottom },
   scroll: { padding: 16, paddingBottom: 40 },
-  title: { fontSize: 18, fontWeight: '800', color: colors.text, marginBottom: 12 },
-  empty: { color: colors.textMuted },
+  title: { fontFamily: displayFont, fontSize: 22, color: night.text, marginBottom: 14 },
+  empty: { color: night.muted },
   gameCard: { marginBottom: 10 },
   rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  gameId: { fontWeight: '800', color: colors.text },
-  date: { color: colors.textMuted, fontSize: 12 },
-  players: { color: colors.textMuted, marginTop: 4, fontSize: 13 },
-  resultRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 },
-  scores: { fontWeight: '700', color: colors.text },
+  gameId: { fontWeight: '800', color: night.gold, letterSpacing: 1 },
+  date: { color: night.mutedDark, fontSize: 12 },
+  players: { color: night.muted, marginTop: 4, fontSize: 13 },
+  resultRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 },
+  scores: { fontFamily: displayFont, color: night.text, fontSize: 16 },
 });

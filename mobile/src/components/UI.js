@@ -1,25 +1,55 @@
 import React from 'react';
 import { Text, TextInput, TouchableOpacity, View, StyleSheet, ActivityIndicator } from 'react-native';
-import { colors, radius, shadow } from '../theme';
+import { LinearGradient } from 'expo-linear-gradient';
+import { night } from '../theme';
 
-// Small shared building blocks so every screen looks the same.
+// Midnight Lounge shared building blocks — every screen uses these so the
+// whole app reads as one design.
+
+// Full-screen night backdrop: place first inside a flex:1 page View.
+export function PageBg() {
+  return (
+    <LinearGradient
+      colors={[night.bgTop, night.bgMid, night.bgBottom]}
+      style={StyleSheet.absoluteFill}
+    />
+  );
+}
 
 export function Btn({ title, onPress, variant = 'primary', disabled, loading, style, small }) {
-  const base = [styles.btn, small && styles.btnSmall, styles[`btn_${variant}`], disabled && styles.btnDisabled, style];
-  const textStyle = [styles.btnText, small && styles.btnTextSmall, styles[`btnText_${variant}`]];
+  if (variant === 'primary' || variant === 'gold') {
+    return (
+      <TouchableOpacity onPress={onPress} disabled={disabled || loading} activeOpacity={0.85} style={style}>
+        <LinearGradient
+          colors={disabled ? ['#3a3428', '#2a251b'] : [night.goldBright, night.gold, night.goldDark]}
+          style={[styles.btn, small && styles.btnSmall, !disabled && styles.btnGoldGlow]}
+        >
+          {loading
+            ? <ActivityIndicator color="#241A05" />
+            : <Text style={[styles.btnGoldText, small && styles.btnTextSmall, disabled && { color: night.mutedDark }]}>{title}</Text>}
+        </LinearGradient>
+      </TouchableOpacity>
+    );
+  }
+  const isDanger = variant === 'danger';
   return (
-    <TouchableOpacity style={base} onPress={onPress} disabled={disabled || loading} activeOpacity={0.8}>
+    <TouchableOpacity
+      onPress={onPress}
+      disabled={disabled || loading}
+      activeOpacity={0.8}
+      style={[styles.btn, small && styles.btnSmall, styles.btnOutline, isDanger && styles.btnDanger, disabled && { opacity: 0.45 }, style]}
+    >
       {loading
-        ? <ActivityIndicator color={variant === 'primary' ? '#fff' : colors.felt} />
-        : <Text style={textStyle}>{title}</Text>}
+        ? <ActivityIndicator color={isDanger ? night.danger : night.gold} />
+        : <Text style={[styles.btnOutlineText, small && styles.btnTextSmall, isDanger && { color: night.danger }]}>{title}</Text>}
     </TouchableOpacity>
   );
 }
 
-export function Chip({ label, color = colors.divider, textColor = colors.text, style }) {
+export function Chip({ label, gold, danger, style, textStyle }) {
   return (
-    <View style={[styles.chip, { backgroundColor: color }, style]}>
-      <Text style={[styles.chipText, { color: textColor }]}>{label}</Text>
+    <View style={[styles.chip, gold && styles.chipGold, danger && styles.chipDanger, style]}>
+      <Text style={[styles.chipText, gold && styles.chipTextGold, danger && styles.chipTextDanger, textStyle]}>{label}</Text>
     </View>
   );
 }
@@ -31,7 +61,7 @@ export function Card({ children, style }) {
 export function Field(props) {
   return (
     <TextInput
-      placeholderTextColor={colors.textMuted}
+      placeholderTextColor={night.mutedDark}
       style={[styles.field, props.style]}
       {...props}
     />
@@ -44,48 +74,56 @@ export function SectionTitle({ children, style }) {
 
 const styles = StyleSheet.create({
   btn: {
-    borderRadius: 10,
-    paddingVertical: 14,
-    paddingHorizontal: 18,
+    height: 52,
+    borderRadius: 13,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 18,
   },
-  btnSmall: { paddingVertical: 8, paddingHorizontal: 12 },
-  btn_primary: { backgroundColor: colors.felt },
-  btn_gold: { backgroundColor: colors.gold },
-  btn_outline: { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: colors.felt },
-  btn_danger: { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: colors.error },
-  btnDisabled: { opacity: 0.45 },
-  btnText: { fontWeight: '700', fontSize: 16 },
-  btnTextSmall: { fontSize: 13 },
-  btnText_primary: { color: '#fff' },
-  btnText_gold: { color: '#241A05' },
-  btnText_outline: { color: colors.felt },
-  btnText_danger: { color: colors.error },
+  btnSmall: { height: 38, borderRadius: 10, paddingHorizontal: 13 },
+  btnGoldGlow: {
+    shadowColor: night.gold, shadowOpacity: 0.4, shadowRadius: 14,
+    shadowOffset: { width: 0, height: 0 }, elevation: 7,
+  },
+  btnGoldText: { color: '#241A05', fontWeight: '800', fontSize: 14, letterSpacing: 1 },
+  btnOutline: {
+    backgroundColor: night.glass,
+    borderWidth: 1.5,
+    borderColor: night.goldBorderStrong,
+  },
+  btnDanger: { borderColor: night.dangerBorder, backgroundColor: night.dangerBg },
+  btnOutlineText: { color: night.gold, fontWeight: '700', fontSize: 13, letterSpacing: 1 },
+  btnTextSmall: { fontSize: 12 },
   chip: {
+    backgroundColor: night.glass,
+    borderWidth: 1,
+    borderColor: night.goldBorder,
     borderRadius: 999,
-    paddingVertical: 4,
-    paddingHorizontal: 10,
+    paddingVertical: 5,
+    paddingHorizontal: 11,
     alignSelf: 'flex-start',
   },
-  chipText: { fontWeight: '600', fontSize: 12 },
+  chipGold: { backgroundColor: night.goldSoft, borderColor: night.gold },
+  chipDanger: { backgroundColor: night.dangerBg, borderColor: night.dangerBorder },
+  chipText: { color: night.text, fontWeight: '600', fontSize: 12 },
+  chipTextGold: { color: night.gold, fontWeight: '700' },
+  chipTextDanger: { color: night.danger },
   card: {
-    backgroundColor: colors.paper,
-    borderRadius: radius.md,
+    backgroundColor: night.glassDim,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: 'rgba(216,178,92,0.25)',
     padding: 16,
-    ...shadow,
   },
   field: {
-    backgroundColor: colors.paper,
+    backgroundColor: 'rgba(0,0,0,0.3)',
     borderWidth: 1,
-    borderColor: colors.divider,
-    borderRadius: 10,
+    borderColor: night.goldBorder,
+    borderRadius: 11,
     paddingVertical: 12,
     paddingHorizontal: 14,
     fontSize: 16,
-    color: colors.text,
+    color: night.text,
   },
-  sectionTitle: { fontSize: 17, fontWeight: '700', color: colors.text, marginBottom: 10 },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: night.text, marginBottom: 10, letterSpacing: 0.3 },
 });

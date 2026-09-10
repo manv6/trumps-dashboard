@@ -80,7 +80,7 @@ export default function AuthPage() {
   return (
     <Box sx={{ 
       minHeight: '100vh',
-      background: 'radial-gradient(1100px 700px at 50% -10%, #147356 0%, #0A4A38 55%, #063D2E 100%)',
+      background: 'radial-gradient(1100px 700px at 50% -10%, #17453a 0%, #0a1412 55%, #060b0a 100%)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
@@ -93,7 +93,7 @@ export default function AuthPage() {
           boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
         }}>
           <Box sx={{ textAlign: 'center', mb: 1 }}>
-            <Typography component="span" sx={{ fontSize: '2.5rem', color: '#C9962E', lineHeight: 1 }}>
+            <Typography component="span" sx={{ fontSize: '2.5rem', color: '#d8b25c', lineHeight: 1 }}>
               ♠
             </Typography>
           </Box>

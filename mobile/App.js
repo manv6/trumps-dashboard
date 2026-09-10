@@ -11,7 +11,7 @@ import LobbyScreen from './src/screens/LobbyScreen';
 import LiveGameScreen from './src/screens/LiveGameScreen';
 import ScoreGameScreen from './src/screens/ScoreGameScreen';
 import HistoryScreen from './src/screens/HistoryScreen';
-import { colors } from './src/theme';
+import { colors, night } from './src/theme';
 
 const Stack = createNativeStackNavigator();
 
@@ -19,8 +19,8 @@ const navTheme = {
   ...DefaultTheme,
   colors: {
     ...DefaultTheme.colors,
-    background: colors.ivory,
-    primary: colors.felt,
+    background: night.bgMid,
+    primary: night.gold,
   },
 };
 
@@ -29,8 +29,8 @@ function AppContent() {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.feltDark }}>
-        <ActivityIndicator size="large" color={colors.gold} />
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: night.bgBottom }}>
+        <ActivityIndicator size="large" color={night.gold} />
       </View>
     );
   }
@@ -56,8 +56,8 @@ export default function App() {
   // so text styled with it never hits an unregistered font family.
   if (!fontsLoaded && !fontError) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.feltDark }}>
-        <ActivityIndicator size="large" color={colors.gold} />
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: night.bgBottom }}>
+        <ActivityIndicator size="large" color={night.gold} />
       </View>
     );
   }
