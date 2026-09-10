@@ -1,29 +1,29 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal,
-  ActivityIndicator, Dimensions,
+  ActivityIndicator, Dimensions, Animated, Easing, Pressable,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import io from 'socket.io-client';
 import { useAuth } from '../AuthContext';
 import { SERVER_URL } from '../config';
 import Header from '../components/Header';
-import PlayingCard from '../components/PlayingCard';
+import CardView from '../components/cards/CardView';
+import CardBack from '../components/cards/CardBack';
 import { night, displayFont } from '../theme';
 
 const SCREEN_W = Dimensions.get('window').width;
+const SCREEN_H = Dimensions.get('window').height;
 
-// ---------- Midnight Lounge building blocks ----------
+const HAND_CARD_W = 94;
+const TABLE_CARD_W = 76;
 
-function NightChip({ label, gold, danger, style }) {
+// ---------- small UI pieces ----------
+
+function NightChip({ label, gold, style }) {
   return (
-    <View style={[
-      styles.chip,
-      gold && styles.chipGold,
-      danger && styles.chipDanger,
-      style,
-    ]}>
-      <Text style={[styles.chipText, gold && styles.chipTextGold, danger && styles.chipTextDanger]}>{label}</Text>
+    <View style={[styles.chip, gold && styles.chipGold, style]}>
+      <Text style={[styles.chipText, gold && styles.chipTextGold]}>{label}</Text>
     </View>
   );
 }
@@ -47,25 +47,46 @@ function GoldButton({ title, onPress, disabled, outline, style }) {
   );
 }
 
-function Medallion({ name, initial, isTurn, isMe, bid, won, size = 56 }) {
+// Pulsing gold ring for whoever's turn it is
+function PulseRing({ size }) {
+  const pulse = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(pulse, { toValue: 1, duration: 900, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+      Animated.timing(pulse, { toValue: 0, duration: 0, useNativeDriver: true }),
+    ]));
+    loop.start();
+    return () => loop.stop();
+  }, [pulse]);
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={{
+        position: 'absolute',
+        width: size, height: size, borderRadius: size / 2,
+        borderWidth: 2, borderColor: night.gold,
+        opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.8, 0] }),
+        transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.45] }) }],
+      }}
+    />
+  );
+}
+
+function Medallion({ name, initial, isTurn, bid, won }) {
   return (
     <View style={styles.medallion}>
-      <View style={[
-        styles.medallionCircle,
-        { width: size, height: size, borderRadius: size / 2 },
-        isTurn ? styles.medallionTurn : (isMe ? styles.medallionMe : null),
-      ]}>
-        <Text style={[styles.medallionInitial, { fontSize: size * 0.38 }]}>{initial}</Text>
+      <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+        {isTurn && <PulseRing size={56} />}
+        <View style={[styles.medallionCircle, isTurn && styles.medallionTurn]}>
+          <Text style={styles.medallionInitial}>{initial}</Text>
+        </View>
       </View>
-      <Text style={[styles.medallionName, isTurn && { color: night.gold }]} numberOfLines={1}>
-        {name}{isMe ? ' (εσύ)' : ''}
-      </Text>
+      <Text style={[styles.medallionName, isTurn && { color: night.gold }]} numberOfLines={1}>{name}</Text>
       <Text style={styles.medallionStats}>{bid ?? '—'} / {won ?? 0}</Text>
     </View>
   );
 }
 
-// The elliptical felt table edge rising from mid-screen
 function TableArc({ top }) {
   return (
     <View pointerEvents="none" style={[styles.tableArc, { top }]}>
@@ -74,7 +95,157 @@ function TableArc({ top }) {
   );
 }
 
-// ---------- Screen ----------
+// ---------- animated cards ----------
+
+// A card in my fan: deals in from the deck, springs to its fan slot when the
+// hand reflows, lifts when playable, and flies toward the table when played.
+function HandCard({ card, x, y, deg, lift, dealDelay, playable, dimmed, onPlay }) {
+  const pos = useRef(new Animated.ValueXY({ x: -x, y: -(SCREEN_H * 0.52) })).current;
+  const rot = useRef(new Animated.Value(0)).current;
+  const scale = useRef(new Animated.Value(0.9)).current;
+  const target = useRef({ x: 0, y: 0 });
+  const flying = useRef(false);
+
+  // Deal-in on mount, spring to new slot on reflow
+  useEffect(() => {
+    if (flying.current) return;
+    const toY = lift ? -16 : 0;
+    target.current = { x: 0, y: toY };
+    Animated.parallel([
+      Animated.spring(pos, { toValue: { x: 0, y: toY }, delay: dealDelay, friction: 8, tension: 50, useNativeDriver: true }),
+      Animated.spring(rot, { toValue: 1, delay: dealDelay, friction: 8, tension: 50, useNativeDriver: true }),
+      Animated.spring(scale, { toValue: 1, delay: dealDelay, friction: 8, useNativeDriver: true }),
+    ]).start();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [x, y, deg, lift, dealDelay]);
+
+  const handlePress = () => {
+    if (!playable || flying.current) return;
+    flying.current = true;
+    Animated.parallel([
+      Animated.timing(pos, { toValue: { x: -x, y: -(SCREEN_H * 0.42) }, duration: 260, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      Animated.timing(scale, { toValue: 0.82, duration: 260, useNativeDriver: true }),
+    ]).start();
+    setTimeout(() => onPlay(card), 140);
+  };
+
+  return (
+    <Animated.View
+      style={{
+        position: 'absolute',
+        left: x + SCREEN_W / 2 - HAND_CARD_W / 2,
+        bottom: 4 - y,
+        transform: [
+          { translateX: pos.x },
+          { translateY: pos.y },
+          { rotate: rot.interpolate({ inputRange: [0, 1], outputRange: ['0deg', `${deg}deg`] }) },
+          { scale },
+        ],
+      }}
+    >
+      <Pressable onPress={handlePress} disabled={!playable}>
+        <CardView card={card} width={HAND_CARD_W} highlighted={playable} dimmed={dimmed} />
+      </Pressable>
+    </Animated.View>
+  );
+}
+
+// A card landing on the table: slides in from the player's side with a spring.
+function TableCard({ card, deg, fromBottom, width = TABLE_CARD_W, highlighted, name }) {
+  const slide = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.spring(slide, { toValue: 1, friction: 7, tension: 60, useNativeDriver: true }).start();
+  }, [slide]);
+  return (
+    <Animated.View
+      style={{
+        alignItems: 'center',
+        marginHorizontal: -7,
+        opacity: slide,
+        transform: [
+          { translateY: slide.interpolate({ inputRange: [0, 1], outputRange: [fromBottom ? 150 : -150, 0] }) },
+          { rotate: slide.interpolate({ inputRange: [0, 1], outputRange: [`${deg + (fromBottom ? 16 : -16)}deg`, `${deg}deg`] }) },
+          { scale: slide.interpolate({ inputRange: [0, 1], outputRange: [1.12, 1] }) },
+        ],
+      }}
+    >
+      <CardView card={card} width={width} highlighted={highlighted} />
+      {name ? <Text style={styles.trickName} numberOfLines={1}>{name}</Text> : null}
+    </Animated.View>
+  );
+}
+
+// The finished trick: rests a beat, then sweeps toward the winner and fades.
+function TrickSweep({ trick, winner, winnerName, myIdx, opponentSlot }) {
+  const sweep = useRef(new Animated.Value(0)).current;
+  const [gone, setGone] = useState(false);
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      Animated.timing(sweep, { toValue: 1, duration: 480, easing: Easing.in(Easing.cubic), useNativeDriver: true })
+        .start(() => setGone(true));
+    }, 750);
+    return () => clearTimeout(t);
+  }, [sweep]);
+
+  const toMe = winner === myIdx;
+  const slot = opponentSlot(winner);
+  const dx = toMe ? 0 : slot.x * 0.7;
+  const dy = toMe ? 320 : -300;
+
+  return (
+    <View style={{ alignItems: 'center' }}>
+      {!gone && (
+        <Animated.View
+          style={{
+            flexDirection: 'row',
+            opacity: sweep.interpolate({ inputRange: [0, 0.75, 1], outputRange: [1, 0.9, 0] }),
+            transform: [
+              { translateX: sweep.interpolate({ inputRange: [0, 1], outputRange: [0, dx] }) },
+              { translateY: sweep.interpolate({ inputRange: [0, 1], outputRange: [0, dy] }) },
+              { scale: sweep.interpolate({ inputRange: [0, 1], outputRange: [1, 0.4] }) },
+            ],
+          }}
+        >
+          {trick.map((play, idx) => (
+            <View key={idx} style={{ marginHorizontal: -7, transform: [{ rotate: `${(idx - (trick.length - 1) / 2) * 8}deg` }] }}>
+              <CardView card={play.card} width={64} highlighted={play.playerIdx === winner} />
+            </View>
+          ))}
+        </Animated.View>
+      )}
+      <View style={[styles.winnerTag, gone && { marginTop: 40 }]}>
+        <Text style={styles.winnerTagText}>Νίκη για τον/την {winnerName}</Text>
+      </View>
+    </View>
+  );
+}
+
+// Bid chip that pops in
+function BidChip({ val, delay, selected, forbidden, enabled, onPick }) {
+  const pop = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.spring(pop, { toValue: 1, delay, friction: 6, tension: 90, useNativeDriver: true }).start();
+  }, [pop, delay]);
+  return (
+    <Animated.View style={{ transform: [{ scale: pop }] }}>
+      <TouchableOpacity disabled={!enabled} onPress={onPick} activeOpacity={0.8}>
+        {selected ? (
+          <LinearGradient colors={[night.goldBright, night.gold, night.goldDark]} style={[styles.bidChip, styles.bidChipSelected]}>
+            <Text style={[styles.bidChipText, { color: '#241A05', fontWeight: '800' }]}>{val}</Text>
+          </LinearGradient>
+        ) : (
+          <View style={[styles.bidChip, forbidden ? styles.bidChipForbidden : (enabled ? styles.bidChipOpen : styles.bidChipIdle)]}>
+            <Text style={[styles.bidChipText, forbidden && { color: night.mutedDark }]}>{val}</Text>
+            {forbidden && <View style={styles.bidChipStrike} />}
+          </View>
+        )}
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
+
+// ---------- screen ----------
 
 export default function LiveGameScreen({ route, navigation }) {
   const { gameId } = route.params;
@@ -92,7 +263,6 @@ export default function LiveGameScreen({ route, navigation }) {
   const [showScore, setShowScore] = useState(false);
   const socketRef = useRef(null);
 
-  // Join via REST first (adds us to the game if needed), then open the socket.
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -139,7 +309,7 @@ export default function LiveGameScreen({ route, navigation }) {
     }
   }, [gameId]);
 
-  // ---- Derived state (same protocol as the web client) ----
+  // ---- Derived state ----
   const gameState = gameData?.gameState || {};
   const numPlayers = gameState.numPlayers || 4;
   const players = gameData?.players || [];
@@ -189,6 +359,14 @@ export default function LiveGameScreen({ route, navigation }) {
     return c;
   };
 
+  const opponents = players.map((p, idx) => ({ p, idx })).filter(({ idx }) => idx !== myIdx);
+  // x-offset of an opponent's medallion relative to screen center (for sweeps)
+  const opponentSlot = useCallback((playerIdx) => {
+    const o = opponents.findIndex(({ idx }) => idx === playerIdx);
+    if (o === -1) return { x: 0 };
+    return { x: (o - (opponents.length - 1) / 2) * 110 };
+  }, [opponents]);
+
   // ---- Loading / error shells ----
   if (loading || !gameData) {
     return (
@@ -198,7 +376,7 @@ export default function LiveGameScreen({ route, navigation }) {
           {loading ? (
             <ActivityIndicator size="large" color={night.gold} />
           ) : (
-            <View style={{ alignItems: 'center', paddingHorizontal: 24 }}>
+            <View style={{ alignItems: 'center', paddingHorizontal: 24, alignSelf: 'stretch' }}>
               <Text style={styles.errorBig}>{error || 'Το παιχνίδι δεν βρέθηκε'}</Text>
               <GoldButton title="ΠΙΣΩ ΣΤΟ LOBBY" onPress={() => navigation.goBack()} style={{ marginTop: 20, alignSelf: 'stretch' }} />
             </View>
@@ -211,35 +389,29 @@ export default function LiveGameScreen({ route, navigation }) {
   // ---- Waiting room ----
   const renderWaiting = () => (
     <View style={{ flex: 1 }}>
-      <TableArc top={430} />
+      <TableArc top={SCREEN_H * 0.52} />
       <View style={{ alignItems: 'center', paddingTop: 26 }}>
         <Text style={styles.waitTitle}>Το τραπέζι ετοιμάζεται</Text>
         <Text style={styles.waitSub}>Μοιράσου τον κωδικό για να καθίσουν οι φίλοι σου</Text>
-
         <View style={styles.codePlate}>
-          <View>
-            <Text style={styles.codeLabel}>ΚΩΔΙΚΟΣ ΤΡΑΠΕΖΙΟΥ</Text>
-            <Text style={styles.codeValue}>{gameId}</Text>
-          </View>
+          <Text style={styles.codeLabel}>ΚΩΔΙΚΟΣ ΤΡΑΠΕΖΙΟΥ</Text>
+          <Text style={styles.codeValue}>{gameId}</Text>
         </View>
-
         <View style={styles.slotRow}>
           {Array(numPlayers).fill(null).map((_, idx) => {
             const p = players[idx];
             return (
               <View key={idx} style={styles.medallion}>
                 {p ? (
-                  <View style={[styles.medallionCircle, styles.slotCircle, p.userId === user.id && styles.medallionTurn]}>
-                    <Text style={[styles.medallionInitial, { fontSize: 24 }]}>{p.username[0].toUpperCase()}</Text>
+                  <View style={[styles.medallionCircle, p.userId === user.id && styles.medallionTurn]}>
+                    <Text style={styles.medallionInitial}>{p.username[0].toUpperCase()}</Text>
                   </View>
                 ) : (
-                  <View style={[styles.slotCircle, styles.slotEmpty]}>
-                    <Text style={{ color: night.goldBorder, fontSize: 26, fontWeight: '300' }}>+</Text>
+                  <View style={[styles.medallionCircle, styles.slotEmpty]}>
+                    <Text style={{ color: night.goldBorder, fontSize: 24, fontWeight: '300' }}>+</Text>
                   </View>
                 )}
-                <Text style={styles.medallionName} numberOfLines={1}>
-                  {p ? p.username : 'Ελεύθερη θέση'}
-                </Text>
+                <Text style={styles.medallionName} numberOfLines={1}>{p ? p.username : 'Ελεύθερη'}</Text>
                 <Text style={styles.medallionStats}>
                   {p ? (p.userId === gameData.hostId ? 'HOST' : 'ΕΤΟΙΜΟΣ') : `${players.length}/${numPlayers}`}
                 </Text>
@@ -248,7 +420,11 @@ export default function LiveGameScreen({ route, navigation }) {
           })}
         </View>
       </View>
-
+      {/* deck resting on the table */}
+      <View style={{ position: 'absolute', top: SCREEN_H * 0.56, alignSelf: 'center' }}>
+        <CardBack width={76} style={{ transform: [{ rotate: '5deg' }], position: 'absolute', left: 8 }} />
+        <CardBack width={76} style={{ transform: [{ rotate: '-4deg' }] }} />
+      </View>
       <View style={{ position: 'absolute', bottom: 40, left: 28, right: 28 }}>
         {isHost ? (
           <GoldButton
@@ -263,67 +439,50 @@ export default function LiveGameScreen({ route, navigation }) {
     </View>
   );
 
-  // ---- Fanned hand ----
+  // ---- The fanned hand (dealt with stagger, keyed by round so each deal re-animates) ----
   const renderHand = (playable) => {
     const n = myHand.length;
-    if (n === 0) {
-      return <Text style={[styles.mutedText, { textAlign: 'center', marginBottom: 30 }]}>Δεν έχεις άλλα φύλλα</Text>;
-    }
-    const spread = Math.min(58, 9 * Math.max(n - 1, 1));
+    if (n === 0) return null;
+    const spread = Math.min(52, 8.5 * Math.max(n - 1, 1));
     const step = n > 1 ? spread / (n - 1) : 0;
-    const R = 300;
+    const R = 330;
     return (
-      <View style={styles.handArea} pointerEvents="box-none">
+      <View key={`hand-${roundIdx}`} style={styles.handArea} pointerEvents="box-none">
         {myHand.map((card, i) => {
           const angle = -spread / 2 + i * step;
           const rad = (angle * Math.PI) / 180;
-          const x = Math.sin(rad) * R;
-          const y = (1 - Math.cos(rad)) * R;
           const canPlay = playable && isCardPlayable(card);
           return (
-            <View
+            <HandCard
               key={`${card.suit}${card.value}`}
-              style={{
-                position: 'absolute',
-                left: SCREEN_W / 2 - 40 + x,
-                bottom: 6 - y + (canPlay ? 16 : 0),
-                transform: [{ rotate: `${angle}deg` }],
-                zIndex: i,
-              }}
-            >
-              <PlayingCard
-                value={card.value}
-                suit={card.suit}
-                size="hand"
-                highlighted={canPlay}
-                disabled={playable && !canPlay}
-                onPress={playable ? () => sendAction('play-card', { card }) : undefined}
-              />
-            </View>
+              card={card}
+              x={Math.sin(rad) * R}
+              y={(1 - Math.cos(rad)) * R}
+              deg={angle}
+              lift={canPlay}
+              dealDelay={i * 70}
+              playable={canPlay}
+              dimmed={playable && !canPlay}
+              onPlay={(c) => sendAction('play-card', { card: c })}
+            />
           );
         })}
       </View>
     );
   };
 
-  // ---- Trick on the table ----
+  // ---- Trick area ----
   const renderTrick = () => {
     if (currentTrick.length === 0 && completedTrick) {
       return (
-        <View style={{ alignItems: 'center' }}>
-          <View style={styles.trickRow}>
-            {completedTrick.trick.map((play, idx) => (
-              <View key={idx} style={{ alignItems: 'center', marginHorizontal: 2, transform: [{ rotate: `${(idx - (completedTrick.trick.length - 1) / 2) * 7}deg` }] }}>
-                <PlayingCard value={play.card.value} suit={play.card.suit} size="mini"
-                  highlighted={completedTrick.winner === play.playerIdx} />
-                <Text style={styles.trickName} numberOfLines={1}>{playerNames[play.playerIdx]}</Text>
-              </View>
-            ))}
-          </View>
-          <View style={styles.winnerTag}>
-            <Text style={styles.winnerTagText}>Νίκη για τον/την {playerNames[completedTrick.winner]}</Text>
-          </View>
-        </View>
+        <TrickSweep
+          key={`sweep-${roundIdx}-${tricksWon.reduce((a, b) => a + b, 0)}`}
+          trick={completedTrick.trick}
+          winner={completedTrick.winner}
+          winnerName={playerNames[completedTrick.winner]}
+          myIdx={myIdx}
+          opponentSlot={opponentSlot}
+        />
       );
     }
     if (currentTrick.length === 0) {
@@ -337,51 +496,41 @@ export default function LiveGameScreen({ route, navigation }) {
       <View style={{ alignItems: 'center' }}>
         <View style={styles.trickRow}>
           {currentTrick.map((play, idx) => (
-            <View key={idx} style={{ alignItems: 'center', marginHorizontal: -6, transform: [{ rotate: `${(idx - (currentTrick.length - 1) / 2) * 9}deg` }, { translateY: idx % 2 === 0 ? 6 : -4 }] }}>
-              <PlayingCard value={play.card.value} suit={play.card.suit} size="table" highlighted={idx === 0} />
-              <Text style={styles.trickName} numberOfLines={1}>{playerNames[play.playerIdx]}</Text>
-            </View>
+            <TableCard
+              key={`${play.card.suit}${play.card.value}`}
+              card={play.card}
+              deg={(idx - (currentTrick.length - 1) / 2) * 9}
+              fromBottom={play.playerIdx === myIdx}
+              highlighted={idx === 0}
+              name={playerNames[play.playerIdx]}
+            />
           ))}
         </View>
-        {leadSuit && (
-          <Text style={[styles.tableHint, { marginTop: 8 }]}>ΑΚΟΛΟΥΘΗΣΕ {leadSuit}</Text>
-        )}
+        {leadSuit && <Text style={[styles.tableHint, { marginTop: 10 }]}>ΑΚΟΛΟΥΘΗΣΕ {leadSuit}</Text>}
       </View>
     );
   };
 
-  // ---- Bidding chips ----
+  // ---- Bidding ----
   const renderBidding = () => (
     <View style={{ alignItems: 'center', paddingHorizontal: 20 }}>
       <Text style={styles.promptTitle}>
         {myTurn ? 'Πόσες νίκες θα κάνεις;' : `Προβλέπει ο/η ${playerNames[turn] || '...'}`}
       </Text>
-      {myTurn && isLastPredictor && (
-        <Text style={styles.promptSub}>ΠΡΟΒΛΕΠΕΙΣ ΤΕΛΕΥΤΑΙΟΣ</Text>
-      )}
+      {myTurn && isLastPredictor && <Text style={styles.promptSub}>ΠΡΟΒΛΕΠΕΙΣ ΤΕΛΕΥΤΑΙΟΣ</Text>}
       <View style={styles.bidWrap}>
         {[...Array(cardsThisRound + 1).keys()].map((val) => {
           const forbidden = myTurn && isLastPredictor && val === forbiddenPrediction;
-          const selected = predictions[myIdx] === val;
-          const enabled = myTurn && !forbidden && predictions[myIdx] == null;
           return (
-            <TouchableOpacity
-              key={val}
-              disabled={!enabled}
-              onPress={() => sendAction('predict', { value: val })}
-              activeOpacity={0.8}
-            >
-              {selected ? (
-                <LinearGradient colors={[night.goldBright, night.gold, night.goldDark]} style={[styles.bidChip, styles.bidChipSelected]}>
-                  <Text style={[styles.bidChipText, { color: '#241A05', fontWeight: '800' }]}>{val}</Text>
-                </LinearGradient>
-              ) : (
-                <View style={[styles.bidChip, forbidden ? styles.bidChipForbidden : (enabled ? styles.bidChipOpen : styles.bidChipIdle)]}>
-                  <Text style={[styles.bidChipText, forbidden && { color: night.mutedDark }]}>{val}</Text>
-                  {forbidden && <View style={styles.bidChipStrike} />}
-                </View>
-              )}
-            </TouchableOpacity>
+            <BidChip
+              key={`${roundIdx}-${val}`}
+              val={val}
+              delay={val * 35}
+              selected={predictions[myIdx] === val}
+              forbidden={forbidden}
+              enabled={myTurn && !forbidden && predictions[myIdx] == null}
+              onPick={() => sendAction('predict', { value: val })}
+            />
           );
         })}
       </View>
@@ -492,9 +641,6 @@ export default function LiveGameScreen({ route, navigation }) {
     </Modal>
   );
 
-  // ---- Main game layout ----
-  const opponents = players.map((p, idx) => ({ p, idx })).filter(({ idx }) => idx !== myIdx);
-
   return (
     <View style={styles.page}>
       <Header subtitle={`Τραπέζι ${gameId}`} onBack={() => navigation.goBack()} />
@@ -503,18 +649,16 @@ export default function LiveGameScreen({ route, navigation }) {
 
         {!gameState.isGameStarted && !isCompleted ? renderWaiting() : (
           <View style={{ flex: 1 }}>
-            {/* HUD row */}
             <View style={styles.hudRow}>
               <NightChip label={`Γύρος ${roundIdx + 1}/${rounds.length || '—'}`} />
               <NightChip label={`${cardsThisRound} φύλλα`} />
               <NightChip gold label={`${trumpSuit} Ατού`} />
               <TouchableOpacity onPress={() => setShowScore(true)} activeOpacity={0.8}>
-                <NightChip label="Σκορ" style={{ borderStyle: 'dashed' }} />
+                <NightChip label="Σκορ" />
               </TouchableOpacity>
               <View style={[styles.connDot, { backgroundColor: connected ? '#4caf7d' : '#c0564c' }]} />
             </View>
 
-            {/* opponents medallions */}
             <View style={styles.medallionRow}>
               {opponents.map(({ p, idx }) => (
                 <Medallion
@@ -528,9 +672,17 @@ export default function LiveGameScreen({ route, navigation }) {
               ))}
             </View>
 
-            {/* table + phase content */}
-            <TableArc top={158} />
-            <View style={{ flex: 1, justifyContent: 'center', paddingBottom: 130 }}>
+            <TableArc top={162} />
+
+            {/* the deck resting at the top of the table */}
+            {(phase === 'predicting' || phase === 'playing') && (
+              <View style={{ position: 'absolute', top: 178, right: 26 }}>
+                <CardBack width={46} style={{ transform: [{ rotate: '6deg' }], position: 'absolute', left: 5, top: 2 }} />
+                <CardBack width={46} style={{ transform: [{ rotate: '-3deg' }] }} />
+              </View>
+            )}
+
+            <View style={{ flex: 1, justifyContent: 'center', paddingBottom: 150 }}>
               {phase === 'predicting' && renderBidding()}
               {phase === 'playing' && renderTrick()}
               {phase === 'game-over' && (
@@ -538,7 +690,6 @@ export default function LiveGameScreen({ route, navigation }) {
               )}
             </View>
 
-            {/* my stat strip */}
             <View style={styles.statStrip}>
               <View style={styles.statCell}>
                 <Text style={styles.statLabel}>ΠΡΟΒΛΕΨΗ</Text>
@@ -562,12 +713,10 @@ export default function LiveGameScreen({ route, navigation }) {
               )}
             </View>
 
-            {/* hand */}
             {renderHand(phase === 'playing')}
           </View>
         )}
 
-        {/* error toast */}
         {error ? (
           <View style={styles.toast}>
             <Text style={styles.toastText}>{error}</Text>
@@ -585,26 +734,21 @@ const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: night.bgBottom },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   errorBig: { color: night.danger, fontSize: 16, fontWeight: '600', textAlign: 'center' },
-  mutedText: { color: night.muted, fontSize: 13 },
 
-  // chips + HUD
   hudRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingTop: 12 },
   chip: {
     backgroundColor: night.glass, borderWidth: 1, borderColor: night.goldBorder,
     borderRadius: 999, paddingVertical: 6, paddingHorizontal: 12,
   },
   chipGold: { backgroundColor: night.goldSoft, borderColor: night.gold },
-  chipDanger: { backgroundColor: night.dangerBg, borderColor: night.dangerBorder },
   chipText: { color: night.text, fontSize: 12, fontWeight: '600' },
   chipTextGold: { color: night.gold, fontWeight: '700' },
-  chipTextDanger: { color: night.danger },
   connDot: { width: 9, height: 9, borderRadius: 5, marginLeft: 'auto' },
 
-  // medallions
   medallionRow: { flexDirection: 'row', justifyContent: 'center', gap: 26, paddingTop: 14 },
   medallion: { alignItems: 'center', width: 84 },
   medallionCircle: {
-    width: 56, height: 56, borderRadius: 28,
+    width: 52, height: 52, borderRadius: 26,
     backgroundColor: '#1d2b33', borderWidth: 1.5, borderColor: night.goldBorder,
     alignItems: 'center', justifyContent: 'center',
   },
@@ -613,12 +757,11 @@ const styles = StyleSheet.create({
     shadowColor: night.gold, shadowOpacity: 0.8, shadowRadius: 12, shadowOffset: { width: 0, height: 0 },
     elevation: 10,
   },
-  medallionMe: { borderColor: night.goldBorderStrong },
-  medallionInitial: { color: night.text, fontWeight: '700' },
+  medallionInitial: { color: night.text, fontWeight: '700', fontSize: 20 },
   medallionName: { color: night.muted, fontSize: 11, fontWeight: '600', marginTop: 5 },
   medallionStats: { color: night.gold, fontSize: 11, fontWeight: '700', marginTop: 1 },
+  slotEmpty: { borderStyle: 'dashed', backgroundColor: night.glassDim },
 
-  // table
   tableArc: { position: 'absolute', left: -110, right: -110, bottom: 0, overflow: 'hidden' },
   tableArcFill: {
     flex: 1,
@@ -627,14 +770,13 @@ const styles = StyleSheet.create({
   },
   tableHint: { color: 'rgba(232,228,216,0.6)', fontSize: 12, fontWeight: '600', letterSpacing: 1.5, textAlign: 'center' },
   trickRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
-  trickName: { color: 'rgba(223,243,234,0.85)', fontSize: 10, marginTop: 3, maxWidth: 66, textAlign: 'center' },
+  trickName: { color: 'rgba(223,243,234,0.85)', fontSize: 10, marginTop: 3, maxWidth: 74, textAlign: 'center' },
   winnerTag: {
-    marginTop: 10, backgroundColor: night.goldBright, borderRadius: 999,
-    paddingVertical: 5, paddingHorizontal: 14,
+    marginTop: 12, backgroundColor: night.goldBright, borderRadius: 999,
+    paddingVertical: 5, paddingHorizontal: 14, alignSelf: 'center',
   },
   winnerTagText: { color: '#241A05', fontWeight: '700', fontSize: 12 },
 
-  // bidding
   promptTitle: { fontFamily: displayFont, color: night.text, fontSize: 24, textAlign: 'center' },
   promptSub: { color: night.muted, fontSize: 11, fontWeight: '700', letterSpacing: 2, marginTop: 5, textAlign: 'center' },
   bidWrap: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 11, marginTop: 18, maxWidth: 330 },
@@ -653,11 +795,10 @@ const styles = StyleSheet.create({
   },
   forbidNoteText: { color: night.danger, fontSize: 12, fontWeight: '600', textAlign: 'center' },
 
-  // stat strip
   statStrip: {
-    position: 'absolute', bottom: 158, alignSelf: 'center',
+    position: 'absolute', bottom: 172, alignSelf: 'center',
     flexDirection: 'row', alignItems: 'center', gap: 13,
-    backgroundColor: 'rgba(10,18,16,0.75)', borderWidth: 1, borderColor: night.goldBorder,
+    backgroundColor: 'rgba(10,18,16,0.8)', borderWidth: 1, borderColor: night.goldBorder,
     borderRadius: 14, paddingVertical: 7, paddingHorizontal: 16,
   },
   statCell: { alignItems: 'center' },
@@ -666,10 +807,8 @@ const styles = StyleSheet.create({
   statDivider: { width: 1, height: 26, backgroundColor: 'rgba(216,178,92,0.3)' },
   turnBadge: { color: night.gold, fontSize: 10, fontWeight: '800', letterSpacing: 1.5 },
 
-  // hand
-  handArea: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 150 },
+  handArea: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 170 },
 
-  // waiting room
   waitTitle: { fontFamily: displayFont, color: night.text, fontSize: 25, textAlign: 'center' },
   waitSub: { color: night.muted, fontSize: 13, marginTop: 6, textAlign: 'center' },
   codePlate: {
@@ -679,12 +818,9 @@ const styles = StyleSheet.create({
   },
   codeLabel: { color: night.muted, fontSize: 10, letterSpacing: 2, fontWeight: '600', textAlign: 'center' },
   codeValue: { fontFamily: displayFont, color: night.gold, fontSize: 29, letterSpacing: 5, marginTop: 2, textAlign: 'center' },
-  slotRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 14, marginTop: 28, paddingHorizontal: 14 },
-  slotCircle: { width: 62, height: 62, borderRadius: 31, alignItems: 'center', justifyContent: 'center' },
-  slotEmpty: { borderWidth: 1.5, borderStyle: 'dashed', borderColor: night.goldBorder, backgroundColor: night.glassDim },
+  slotRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 14, marginTop: 26, paddingHorizontal: 14 },
 
-  // modals
-  modalBackdrop: { flex: 1, backgroundColor: 'rgba(4,8,7,0.8)', alignItems: 'center', justifyContent: 'center', padding: 22 },
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(4,8,7,0.85)', alignItems: 'center', justifyContent: 'center', padding: 22 },
   panel: {
     alignSelf: 'stretch', backgroundColor: night.panel, borderWidth: 1.5, borderColor: night.goldBorderStrong,
     borderRadius: 20, padding: 22,
@@ -705,7 +841,6 @@ const styles = StyleSheet.create({
   rankSub: { color: night.muted, fontSize: 11, marginTop: 1 },
   rankScore: { fontFamily: displayFont, color: night.text, fontSize: 22 },
 
-  // buttons
   btnGold: { height: 52, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
   btnGoldGlow: { shadowColor: night.gold, shadowOpacity: 0.45, shadowRadius: 16, shadowOffset: { width: 0, height: 0 }, elevation: 8 },
   btnGoldText: { color: '#241A05', fontWeight: '800', fontSize: 14, letterSpacing: 1 },
@@ -715,7 +850,6 @@ const styles = StyleSheet.create({
   },
   btnOutlineText: { color: night.gold, fontWeight: '700', fontSize: 13, letterSpacing: 1 },
 
-  // score table
   tr: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: 'rgba(216,178,92,0.18)', paddingVertical: 7 },
   th: { color: night.text, fontWeight: '800', fontSize: 12 },
   td: { color: night.text, fontSize: 12 },
@@ -723,7 +857,6 @@ const styles = StyleSheet.create({
   cellPlayer: { width: 96, textAlign: 'center' },
   scoreLegend: { color: night.mutedDark, fontSize: 11, marginTop: 10, textAlign: 'center' },
 
-  // toast
   toast: {
     position: 'absolute', top: 60, alignSelf: 'center',
     backgroundColor: night.dangerBg, borderWidth: 1, borderColor: night.dangerBorder,
