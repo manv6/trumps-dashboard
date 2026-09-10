@@ -208,7 +208,7 @@ export default function LiveGameScreen({ route, navigation }) {
   const renderBidding = () => (
     <Card style={styles.section}>
       <SectionTitle>
-        {myTurn ? 'Πόσες μάζες θα κάνεις;' : `Περιμένουμε τον/την ${playerNames[turn] || '...'}`}
+        {myTurn ? 'Πόσες νίκες θα κάνεις;' : `Περιμένουμε τον/την ${playerNames[turn] || '...'}`}
       </SectionTitle>
       <View style={styles.bidRow}>
         {[...Array(cardsThisRound + 1).keys()].map((val) => {
@@ -268,7 +268,7 @@ export default function LiveGameScreen({ route, navigation }) {
                 ))}
               </View>
               <Chip
-                label={`Η μάζα στον/στην ${playerNames[completedTrick.winner]}`}
+                label={`Νίκη για τον/την ${playerNames[completedTrick.winner]}`}
                 color={colors.goldLight}
                 textColor="#241A05"
                 style={{ marginTop: 8, alignSelf: 'center' }}

@@ -214,8 +214,8 @@ export default function App() {
                   🎯 Βαθμολογία:
                 </Typography>
                 <Typography variant="caption" sx={{ display: "block", lineHeight: 1.3 }}>
-                  • Σωστή πρόβλεψη: Μάζια + 10 πόντοι<br/>
-                  • Λάθος πρόβλεψη: Μόνο τα μάζια
+                  • Σωστή πρόβλεψη: Νίκες + 10 πόντοι<br/>
+                  • Λάθος πρόβλεψη: Μόνο οι νίκες
                 </Typography>
               </Box>
               

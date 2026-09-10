@@ -198,7 +198,7 @@ export default function ScoreGameScreen({ route, navigation }) {
               </View>
             );
           })}
-          <Text style={styles.legend}>👤 εσύ · 🔶 τελευταίος (δεν μπορεί σύνολο = φύλλα) · Π πρόβλεψη · Μ μάζες</Text>
+          <Text style={styles.legend}>👤 εσύ · 🔶 τελευταίος (δεν μπορεί σύνολο = φύλλα) · Π πρόβλεψη · Μ νίκες</Text>
         </Card>
 
         {/* Round navigation */}

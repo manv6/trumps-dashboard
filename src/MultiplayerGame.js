@@ -323,8 +323,8 @@ export default function MultiplayerGame({ gameId, initialGameData, onLeaveGame }
                   🎯 Βαθμολογία:
                 </Typography>
                 <Typography variant="caption" sx={{ display: "block", lineHeight: 1.3 }}>
-                  • Σωστή πρόβλεψη: Μάζια + 10 πόντοι<br/>
-                  • Λάθος πρόβλεψη: Μόνο τα μάζια
+                  • Σωστή πρόβλεψη: Νίκες + 10 πόντοι<br/>
+                  • Λάθος πρόβλεψη: Μόνο οι νίκες
                 </Typography>
               </Box>
               
@@ -357,7 +357,7 @@ export default function MultiplayerGame({ gameId, initialGameData, onLeaveGame }
                 <Typography variant="caption" sx={{ display: "block", lineHeight: 1.3 }}>
                   • Μόνο τη δική σας στήλη<br/>
                   • Προβλέψεις: τρέχων και μελλοντικοί γύροι<br/>
-                  • Μάζια: μόνο τρέχων γύρος
+                  • Νίκες: μόνο τρέχων γύρος
                 </Typography>
               </Box>
               
