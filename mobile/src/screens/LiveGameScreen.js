@@ -10,6 +10,8 @@ import { SERVER_URL } from '../config';
 import Header from '../components/Header';
 import CardView from '../components/cards/CardView';
 import CardBack from '../components/cards/CardBack';
+import Halo from '../components/effects/Halo';
+import Fireworks from '../components/effects/Fireworks';
 import { night, displayFont } from '../theme';
 
 const SCREEN_W = Dimensions.get('window').width;
@@ -72,11 +74,12 @@ function PulseRing({ size }) {
   );
 }
 
-function Medallion({ name, initial, isTurn, bid, won }) {
+function Medallion({ name, initial, isTurn, halo, bid, won }) {
   return (
     <View style={styles.medallion}>
       <View style={{ alignItems: 'center', justifyContent: 'center' }}>
         {isTurn && <PulseRing size={56} />}
+        {halo && <Halo width={46} style={{ position: 'absolute', top: -20, zIndex: 5 }} />}
         <View style={[styles.medallionCircle, isTurn && styles.medallionTurn]}>
           <Text style={styles.medallionInitial}>{initial}</Text>
         </View>
@@ -261,6 +264,7 @@ export default function LiveGameScreen({ route, navigation }) {
   const [showEnd, setShowEnd] = useState(false);
   const [endDismissed, setEndDismissed] = useState(false);
   const [showScore, setShowScore] = useState(false);
+  const [trickHalo, setTrickHalo] = useState(null); // playerIdx crowned after a trick
   const socketRef = useRef(null);
 
   useEffect(() => {
@@ -308,6 +312,16 @@ export default function LiveGameScreen({ route, navigation }) {
       socketRef.current.emit('actual-action', { gameId, action, payload });
     }
   }, [gameId]);
+
+  // Crown the trick winner with a halo for a couple of seconds
+  const completedTrickWinner = actualState?.completedTrick?.winner;
+  const completedTrickCount = (actualState?.tricksWon || []).reduce((a, b) => a + (b || 0), 0);
+  useEffect(() => {
+    if (completedTrickWinner === undefined || completedTrickWinner === null) return;
+    setTrickHalo(completedTrickWinner);
+    const t = setTimeout(() => setTrickHalo(null), 2600);
+    return () => clearTimeout(t);
+  }, [completedTrickWinner, completedTrickCount]);
 
   // ---- Derived state ----
   const gameState = gameData?.gameState || {};
@@ -611,6 +625,7 @@ export default function LiveGameScreen({ route, navigation }) {
       onRequestClose={() => setEndDismissed(true)}
     >
       <View style={styles.modalBackdrop}>
+        <Fireworks />
         <View style={styles.panel}>
           <Text style={styles.panelTitle}>Τέλος Παιχνιδιού</Text>
           <Text style={styles.winnerLine}>
@@ -619,8 +634,11 @@ export default function LiveGameScreen({ route, navigation }) {
           <View style={{ gap: 9, marginTop: 16 }}>
             {ranked.map((row) => (
               <View key={row.idx} style={[styles.rankRow, row.isWinner && styles.rankRowWinner]}>
-                <View style={[styles.medallionCircle, { width: 40, height: 40, borderRadius: 20 }, row.isWinner && styles.medallionTurn]}>
-                  <Text style={[styles.medallionInitial, { fontSize: 16 }]}>{row.name[0]?.toUpperCase()}</Text>
+                <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+                  {row.isWinner && <Halo width={36} style={{ position: 'absolute', top: -16, zIndex: 5 }} />}
+                  <View style={[styles.medallionCircle, { width: 40, height: 40, borderRadius: 20 }, row.isWinner && styles.medallionTurn]}>
+                    <Text style={[styles.medallionInitial, { fontSize: 16 }]}>{row.name[0]?.toUpperCase()}</Text>
+                  </View>
                 </View>
                 <View style={{ flex: 1, marginLeft: 11 }}>
                   <Text style={[styles.rankName, row.isWinner && { color: night.goldBright }]}>
@@ -666,6 +684,7 @@ export default function LiveGameScreen({ route, navigation }) {
                   name={p.username}
                   initial={p.username[0]?.toUpperCase()}
                   isTurn={turn === idx && phase !== 'game-over'}
+                  halo={trickHalo === idx}
                   bid={predictions[idx]}
                   won={tricksWon[idx]}
                 />
@@ -689,6 +708,13 @@ export default function LiveGameScreen({ route, navigation }) {
                 <Text style={styles.promptTitle}>Το παιχνίδι ολοκληρώθηκε</Text>
               )}
             </View>
+
+            {trickHalo === myIdx && (
+              <View pointerEvents="none" style={styles.myHalo}>
+                <Halo width={52} />
+                <Text style={styles.myHaloText}>ΝΙΚΗ!</Text>
+              </View>
+            )}
 
             <View style={styles.statStrip}>
               <View style={styles.statCell}>
@@ -745,7 +771,9 @@ const styles = StyleSheet.create({
   chipTextGold: { color: night.gold, fontWeight: '700' },
   connDot: { width: 9, height: 9, borderRadius: 5, marginLeft: 'auto' },
 
-  medallionRow: { flexDirection: 'row', justifyContent: 'center', gap: 26, paddingTop: 14 },
+  medallionRow: { flexDirection: 'row', justifyContent: 'center', gap: 26, paddingTop: 24 },
+  myHalo: { position: 'absolute', bottom: 236, alignSelf: 'center', alignItems: 'center', zIndex: 20 },
+  myHaloText: { color: night.goldBright, fontSize: 12, fontWeight: '800', letterSpacing: 2, marginTop: 4 },
   medallion: { alignItems: 'center', width: 84 },
   medallionCircle: {
     width: 52, height: 52, borderRadius: 26,
