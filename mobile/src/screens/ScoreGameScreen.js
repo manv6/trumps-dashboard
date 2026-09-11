@@ -10,6 +10,8 @@ import { SERVER_URL } from '../config';
 import Header from '../components/Header';
 import Halo from '../components/effects/Halo';
 import Fireworks from '../components/effects/Fireworks';
+import Trophy from '../components/effects/Trophy';
+import ScoreSheet from '../components/ScoreSheet';
 import { night, displayFont } from '../theme';
 
 const SCREEN_W = Dimensions.get('window').width;
@@ -102,6 +104,7 @@ export default function ScoreGameScreen({ route, navigation }) {
   const [error, setError] = useState('');
   const [viewRound, setViewRound] = useState(null); // null = follow currentRound
   const [picker, setPicker] = useState(null); // { type: 'pred'|'tricks', playerIdx }
+  const [showSheet, setShowSheet] = useState(false);
   const socketRef = useRef(null);
 
   useEffect(() => {
@@ -267,6 +270,9 @@ export default function ScoreGameScreen({ route, navigation }) {
             <NightChip label={`Γύρος ${shownRound + 1}/${rounds.length}`} />
             <NightChip label={`${cards} φύλλα`} />
             <NightChip gold label={`Σύνολο ${sumPreds}/${cards}`} />
+            <TouchableOpacity onPress={() => setShowSheet(true)} activeOpacity={0.8}>
+              <NightChip gold label="Φύλλο" />
+            </TouchableOpacity>
             <TouchableOpacity onPress={confirmExit} activeOpacity={0.8}>
               <NightChip label="Έξοδος" />
             </TouchableOpacity>
@@ -384,11 +390,34 @@ export default function ScoreGameScreen({ route, navigation }) {
         ) : null}
       </View>
 
+      {/* full score sheet */}
+      <Modal visible={showSheet} transparent animationType="slide" onRequestClose={() => setShowSheet(false)}>
+        <View style={styles.pickerBackdrop}>
+          <View style={[styles.pickerPanel, { maxHeight: '84%', alignItems: 'stretch' }]}>
+            <Text style={[styles.pickerTitle, { textAlign: 'center' }]}>Φύλλο Σκορ</Text>
+            <ScrollView showsVerticalScrollIndicator={false} style={{ marginTop: 14 }}>
+              <ScoreSheet
+                players={players}
+                playerData={playerData}
+                rounds={rounds}
+                currentRound={currentRound}
+                isCompleted={gameState.isGameCompleted}
+                myIdx={myIdx}
+              />
+            </ScrollView>
+            <GoldButton title="ΚΛΕΙΣΙΜΟ" outline onPress={() => setShowSheet(false)} style={{ marginTop: 14 }} />
+          </View>
+        </View>
+      </Modal>
+
       {/* end of game: fireworks + final standings */}
       {gameState.isGameCompleted && (
         <View style={styles.endOverlay} pointerEvents="box-none">
           <Fireworks />
           <View style={styles.endPanel}>
+            <View style={{ alignItems: 'center', marginBottom: 10 }}>
+              <Trophy size={60} />
+            </View>
             <Text style={styles.pickerTitle}>Τέλος Παιχνιδιού</Text>
             <Text style={styles.endWinnerLine}>
               ΝΙΚΗΤΗΣ · {standings[0]?.name?.toUpperCase() || '—'}

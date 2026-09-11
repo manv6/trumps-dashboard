@@ -12,6 +12,8 @@ import CardView from '../components/cards/CardView';
 import CardBack from '../components/cards/CardBack';
 import Halo from '../components/effects/Halo';
 import Fireworks from '../components/effects/Fireworks';
+import Trophy from '../components/effects/Trophy';
+import ScoreSheet from '../components/ScoreSheet';
 import { night, displayFont } from '../theme';
 
 const SCREEN_W = Dimensions.get('window').width;
@@ -652,45 +654,18 @@ export default function LiveGameScreen({ route, navigation }) {
       <View style={styles.modalBackdrop}>
         <View style={[styles.panel, { maxHeight: '82%' }]}>
           <Text style={styles.panelTitle}>Φύλλο Σκορ</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <ScrollView showsVerticalScrollIndicator={false}>
-              <View style={styles.tr}>
-                <Text style={[styles.th, styles.cellRound]}>Γ</Text>
-                <Text style={[styles.th, styles.cellRound]}>Φ</Text>
-                {playerNames.map((name, idx) => (
-                  <Text key={idx} style={[styles.th, styles.cellPlayer, idx === myIdx && { color: night.gold }]} numberOfLines={1}>{name}</Text>
-                ))}
-              </View>
-              {rounds.map((cards, rIdx) => {
-                const isCur = rIdx === roundIdx && !isCompleted;
-                return (
-                  <View key={rIdx} style={[styles.tr, isCur && { backgroundColor: night.goldSoft }]}>
-                    <Text style={[styles.td, styles.cellRound]}>{rIdx + 1}</Text>
-                    <Text style={[styles.td, styles.cellRound]}>{cards}</Text>
-                    {playerNames.map((_, pIdx) => {
-                      const pd = gameState.playerData?.[pIdx] || {};
-                      const pred = isCur ? predictions[pIdx] : pd.predictions?.[rIdx];
-                      const tricks = isCur ? tricksWon[pIdx] : pd.tricks?.[rIdx];
-                      const pts = pd.points?.[rIdx];
-                      return (
-                        <Text key={pIdx} style={[styles.td, styles.cellPlayer]}>
-                          {(pred ?? '—')}/{(tricks ?? '—')}{pts !== undefined ? ` · ${pts}` : ''}
-                        </Text>
-                      );
-                    })}
-                  </View>
-                );
-              })}
-              <View style={[styles.tr, { borderBottomWidth: 0 }]}>
-                <Text style={[styles.th, styles.cellRound]} />
-                <Text style={[styles.th, styles.cellRound]}>Σ</Text>
-                {playerNames.map((_, pIdx) => (
-                  <Text key={pIdx} style={[styles.th, styles.cellPlayer, { color: night.gold }]}>{totalPoints(pIdx)}</Text>
-                ))}
-              </View>
-            </ScrollView>
+          <ScrollView showsVerticalScrollIndicator={false} style={{ marginTop: 14 }}>
+            <ScoreSheet
+              players={players}
+              playerData={gameState.playerData}
+              rounds={rounds}
+              currentRound={roundIdx}
+              isCompleted={isCompleted}
+              myIdx={myIdx}
+              livePredictions={predictions}
+              liveTricks={tricksWon}
+            />
           </ScrollView>
-          <Text style={styles.scoreLegend}>πρόβλεψη / νίκες · πόντοι — τρέχων γύρος με χρυσό</Text>
           <GoldButton title="ΚΛΕΙΣΙΜΟ" outline onPress={() => setShowScore(false)} style={{ marginTop: 14 }} />
         </View>
       </View>
@@ -715,6 +690,9 @@ export default function LiveGameScreen({ route, navigation }) {
       <View style={styles.modalBackdrop}>
         <Fireworks />
         <View style={styles.panel}>
+          <View style={{ alignItems: 'center', marginBottom: 10 }}>
+            <Trophy size={64} />
+          </View>
           <Text style={styles.panelTitle}>Τέλος Παιχνιδιού</Text>
           <Text style={styles.winnerLine}>
             {ranked.filter(r => r.isWinner).length > 1 ? 'ΝΙΚΗΤΕΣ' : 'ΝΙΚΗΤΗΣ'} · {(finalResult?.winners || []).join(', ').toUpperCase()}
