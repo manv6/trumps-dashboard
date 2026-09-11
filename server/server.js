@@ -1583,7 +1583,12 @@ app.get('/api/actual-games/history', async (req, res) => {
 });
 
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+  res.json({
+    status: 'OK',
+    timestamp: new Date().toISOString(),
+    ui: (app.locals.staticDir || '').includes('mobile') ? 'expo-web' : 'cra',
+    rev: process.env.RAILWAY_GIT_COMMIT_SHA?.slice(0, 7) || 'local',
+  });
 });
 
 // Catch-all handler: send back React's index.html file for production
