@@ -9,9 +9,7 @@ node_modules/
 
 # Build outputs
 build/
-dist/
 **/build/
-**/dist/
 
 # Environment files
 .env*
