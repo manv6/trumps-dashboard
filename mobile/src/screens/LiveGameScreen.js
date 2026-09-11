@@ -1,29 +1,31 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal,
-  ActivityIndicator, Dimensions,
+  ActivityIndicator, Dimensions, Animated, Easing, Pressable, Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import io from 'socket.io-client';
 import { useAuth } from '../AuthContext';
 import { SERVER_URL } from '../config';
 import Header from '../components/Header';
-import PlayingCard from '../components/PlayingCard';
+import CardView from '../components/cards/CardView';
+import CardBack from '../components/cards/CardBack';
+import Halo from '../components/effects/Halo';
+import Fireworks from '../components/effects/Fireworks';
 import { night, displayFont } from '../theme';
 
 const SCREEN_W = Dimensions.get('window').width;
+const SCREEN_H = Dimensions.get('window').height;
 
-// ---------- Midnight Lounge building blocks ----------
+const HAND_CARD_W = 94;
+const TABLE_CARD_W = 76;
 
-function NightChip({ label, gold, danger, style }) {
+// ---------- small UI pieces ----------
+
+function NightChip({ label, gold, style }) {
   return (
-    <View style={[
-      styles.chip,
-      gold && styles.chipGold,
-      danger && styles.chipDanger,
-      style,
-    ]}>
-      <Text style={[styles.chipText, gold && styles.chipTextGold, danger && styles.chipTextDanger]}>{label}</Text>
+    <View style={[styles.chip, gold && styles.chipGold, style]}>
+      <Text style={[styles.chipText, gold && styles.chipTextGold]}>{label}</Text>
     </View>
   );
 }
@@ -47,17 +49,46 @@ function GoldButton({ title, onPress, disabled, outline, style }) {
   );
 }
 
-function Medallion({ name, initial, isTurn, isMe, bid, won, size = 56 }) {
+// Pulsing gold ring for whoever's turn it is
+function PulseRing({ size }) {
+  const pulse = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(pulse, { toValue: 1, duration: 900, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+      Animated.timing(pulse, { toValue: 0, duration: 0, useNativeDriver: true }),
+    ]));
+    loop.start();
+    return () => loop.stop();
+  }, [pulse]);
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={{
+        position: 'absolute',
+        width: size, height: size, borderRadius: size / 2,
+        borderWidth: 2, borderColor: night.gold,
+        opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.8, 0] }),
+        transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.45] }) }],
+      }}
+    />
+  );
+}
+
+function Medallion({ name, initial, isTurn, isMe, order, bid, won }) {
   return (
     <View style={styles.medallion}>
-      <View style={[
-        styles.medallionCircle,
-        { width: size, height: size, borderRadius: size / 2 },
-        isTurn ? styles.medallionTurn : (isMe ? styles.medallionMe : null),
-      ]}>
-        <Text style={[styles.medallionInitial, { fontSize: size * 0.38 }]}>{initial}</Text>
+      <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+        {isTurn && <PulseRing size={56} />}
+        <View style={[styles.medallionCircle, isMe && styles.medallionMe, isTurn && styles.medallionTurn]}>
+          <Text style={styles.medallionInitial}>{initial}</Text>
+        </View>
+        {order != null && (
+          <View style={styles.orderBadge}>
+            <Text style={styles.orderBadgeText}>{order}</Text>
+          </View>
+        )}
       </View>
-      <Text style={[styles.medallionName, isTurn && { color: night.gold }]} numberOfLines={1}>
+      <Text style={[styles.medallionName, isTurn && { color: night.gold }, isMe && !isTurn && { color: night.goldBright }]} numberOfLines={1}>
         {name}{isMe ? ' (εσύ)' : ''}
       </Text>
       <Text style={styles.medallionStats}>{bid ?? '—'} / {won ?? 0}</Text>
@@ -65,7 +96,6 @@ function Medallion({ name, initial, isTurn, isMe, bid, won, size = 56 }) {
   );
 }
 
-// The elliptical felt table edge rising from mid-screen
 function TableArc({ top }) {
   return (
     <View pointerEvents="none" style={[styles.tableArc, { top }]}>
@@ -74,11 +104,160 @@ function TableArc({ top }) {
   );
 }
 
-// ---------- Screen ----------
+// ---------- animated cards ----------
+
+// A card in my fan: deals in from the deck, springs to its fan slot when the
+// hand reflows, lifts when playable, and flies toward the table when played.
+function HandCard({ card, x, y, deg, lift, dealDelay, playable, dimmed, onPlay }) {
+  const pos = useRef(new Animated.ValueXY({ x: -x, y: -(SCREEN_H * 0.52) })).current;
+  const rot = useRef(new Animated.Value(0)).current;
+  const scale = useRef(new Animated.Value(0.9)).current;
+  const target = useRef({ x: 0, y: 0 });
+  const flying = useRef(false);
+
+  // Deal-in on mount, spring to new slot on reflow
+  useEffect(() => {
+    if (flying.current) return;
+    const toY = lift ? -16 : 0;
+    target.current = { x: 0, y: toY };
+    Animated.parallel([
+      Animated.spring(pos, { toValue: { x: 0, y: toY }, delay: dealDelay, friction: 8, tension: 50, useNativeDriver: true }),
+      Animated.spring(rot, { toValue: 1, delay: dealDelay, friction: 8, tension: 50, useNativeDriver: true }),
+      Animated.spring(scale, { toValue: 1, delay: dealDelay, friction: 8, useNativeDriver: true }),
+    ]).start();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [x, y, deg, lift, dealDelay]);
+
+  const handlePress = () => {
+    if (!playable || flying.current) return;
+    flying.current = true;
+    Animated.parallel([
+      Animated.timing(pos, { toValue: { x: -x, y: -(SCREEN_H * 0.42) }, duration: 260, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      Animated.timing(scale, { toValue: 0.82, duration: 260, useNativeDriver: true }),
+    ]).start();
+    setTimeout(() => onPlay(card), 140);
+  };
+
+  return (
+    <Animated.View
+      style={{
+        position: 'absolute',
+        left: x + SCREEN_W / 2 - HAND_CARD_W / 2,
+        bottom: 4 - y,
+        transform: [
+          { translateX: pos.x },
+          { translateY: pos.y },
+          { rotate: rot.interpolate({ inputRange: [0, 1], outputRange: ['0deg', `${deg}deg`] }) },
+          { scale },
+        ],
+      }}
+    >
+      <Pressable onPress={handlePress} disabled={!playable}>
+        <CardView card={card} width={HAND_CARD_W} highlighted={playable} dimmed={dimmed} />
+      </Pressable>
+    </Animated.View>
+  );
+}
+
+// A card landing on the table: slides in from the player's side with a spring.
+function TableCard({ card, deg, fromBottom, width = TABLE_CARD_W, highlighted, name }) {
+  const slide = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.spring(slide, { toValue: 1, friction: 7, tension: 60, useNativeDriver: true }).start();
+  }, [slide]);
+  return (
+    <Animated.View
+      style={{
+        alignItems: 'center',
+        marginHorizontal: -7,
+        opacity: slide,
+        transform: [
+          { translateY: slide.interpolate({ inputRange: [0, 1], outputRange: [fromBottom ? 150 : -150, 0] }) },
+          { rotate: slide.interpolate({ inputRange: [0, 1], outputRange: [`${deg + (fromBottom ? 16 : -16)}deg`, `${deg}deg`] }) },
+          { scale: slide.interpolate({ inputRange: [0, 1], outputRange: [1.12, 1] }) },
+        ],
+      }}
+    >
+      <CardView card={card} width={width} highlighted={highlighted} />
+      {name ? <Text style={styles.trickName} numberOfLines={1}>{name}</Text> : null}
+    </Animated.View>
+  );
+}
+
+// The finished trick: rests a beat, then sweeps toward the winner and fades.
+function TrickSweep({ trick, winner, winnerName, myIdx, opponentSlot }) {
+  const sweep = useRef(new Animated.Value(0)).current;
+  const [gone, setGone] = useState(false);
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      Animated.timing(sweep, { toValue: 1, duration: 480, easing: Easing.in(Easing.cubic), useNativeDriver: true })
+        .start(() => setGone(true));
+    }, 750);
+    return () => clearTimeout(t);
+  }, [sweep]);
+
+  const slot = opponentSlot(winner);
+  const dx = slot.x * 0.7;
+  const dy = -300;
+
+  return (
+    <View style={{ alignItems: 'center' }}>
+      {!gone && (
+        <Animated.View
+          style={{
+            flexDirection: 'row',
+            opacity: sweep.interpolate({ inputRange: [0, 0.75, 1], outputRange: [1, 0.9, 0] }),
+            transform: [
+              { translateX: sweep.interpolate({ inputRange: [0, 1], outputRange: [0, dx] }) },
+              { translateY: sweep.interpolate({ inputRange: [0, 1], outputRange: [0, dy] }) },
+              { scale: sweep.interpolate({ inputRange: [0, 1], outputRange: [1, 0.4] }) },
+            ],
+          }}
+        >
+          {trick.map((play, idx) => (
+            <View key={idx} style={{ marginHorizontal: -7, transform: [{ rotate: `${(idx - (trick.length - 1) / 2) * 8}deg` }] }}>
+              <CardView card={play.card} width={64} highlighted={play.playerIdx === winner} />
+            </View>
+          ))}
+        </Animated.View>
+      )}
+      <View style={[styles.winnerTag, gone && { marginTop: 40 }]}>
+        <Text style={styles.winnerTagText}>Νίκη για τον/την {winnerName}</Text>
+      </View>
+    </View>
+  );
+}
+
+// Bid chip that pops in
+function BidChip({ val, delay, selected, forbidden, enabled, onPick }) {
+  const pop = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.spring(pop, { toValue: 1, delay, friction: 6, tension: 90, useNativeDriver: true }).start();
+  }, [pop, delay]);
+  return (
+    <Animated.View style={{ transform: [{ scale: pop }] }}>
+      <TouchableOpacity disabled={!enabled} onPress={onPick} activeOpacity={0.8}>
+        {selected ? (
+          <LinearGradient colors={[night.goldBright, night.gold, night.goldDark]} style={[styles.bidChip, styles.bidChipSelected]}>
+            <Text style={[styles.bidChipText, { color: '#241A05', fontWeight: '800' }]}>{val}</Text>
+          </LinearGradient>
+        ) : (
+          <View style={[styles.bidChip, forbidden ? styles.bidChipForbidden : (enabled ? styles.bidChipOpen : styles.bidChipIdle)]}>
+            <Text style={[styles.bidChipText, forbidden && { color: night.mutedDark }]}>{val}</Text>
+            {forbidden && <View style={styles.bidChipStrike} />}
+          </View>
+        )}
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
+
+// ---------- screen ----------
 
 export default function LiveGameScreen({ route, navigation }) {
   const { gameId } = route.params;
-  const { user, joinGame } = useAuth();
+  const { user, joinGame, completeActualGame } = useAuth();
 
   const [gameData, setGameData] = useState(null);
   const [actualState, setActualState] = useState(null);
@@ -90,9 +269,12 @@ export default function LiveGameScreen({ route, navigation }) {
   const [showEnd, setShowEnd] = useState(false);
   const [endDismissed, setEndDismissed] = useState(false);
   const [showScore, setShowScore] = useState(false);
+  const [roundSummary, setRoundSummary] = useState(null); // { round, results } shown between rounds
+  const [welcome, setWelcome] = useState(null); // { draw, dealerIdx, step } opening ritual
+  const prevStartedRef = useRef(null);
+  const prevRoundRef = useRef(null);
   const socketRef = useRef(null);
 
-  // Join via REST first (adds us to the game if needed), then open the socket.
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -139,7 +321,82 @@ export default function LiveGameScreen({ route, navigation }) {
     }
   }, [gameId]);
 
-  // ---- Derived state (same protocol as the web client) ----
+  const leaveTable = useCallback(() => {
+    if (socketRef.current?.connected) socketRef.current.emit('leave-game', { gameId });
+    navigation.goBack();
+  }, [gameId, navigation]);
+
+  const confirmExit = () => {
+    const buttons = [
+      { text: 'Ακύρωση', style: 'cancel' },
+      { text: 'Έξοδος', onPress: leaveTable },
+    ];
+    if (isHost && gameState.isGameStarted && !isCompleted) {
+      buttons.push({
+        text: 'Τερματισμός τραπεζιού',
+        style: 'destructive',
+        onPress: async () => { await completeActualGame(gameId); navigation.goBack(); },
+      });
+    }
+    Alert.alert('Έξοδος από το τραπέζι', 'Τι θέλεις να κάνεις;', buttons);
+  };
+
+  // When a round finishes (server advanced to the next one), celebrate it:
+  // show every player's result with halos + fireworks for the winners.
+  const liveRoundIdx = actualState?.roundIdx;
+  useEffect(() => {
+    if (liveRoundIdx === undefined || liveRoundIdx === null) return;
+    const prev = prevRoundRef.current;
+    prevRoundRef.current = liveRoundIdx;
+    if (prev === null || liveRoundIdx !== prev + 1) return; // first load or reset
+    const pd = gameData?.gameState?.playerData || [];
+    const results = (gameData?.players || []).map((p, idx) => {
+      const pred = pd[idx]?.predictions?.[prev];
+      const tricks = pd[idx]?.tricks?.[prev];
+      return {
+        idx,
+        name: p.username,
+        pred, tricks,
+        pts: pd[idx]?.points?.[prev] ?? 0,
+        hit: pred !== undefined && pred !== null && pred === tricks,
+      };
+    });
+    // let the last trick's sweep finish before the curtain rises
+    const show = setTimeout(() => setRoundSummary({ round: prev, results }), 800);
+    return () => clearTimeout(show);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveRoundIdx]);
+
+  // auto-dismiss the round celebration
+  useEffect(() => {
+    if (!roundSummary) return;
+    const t = setTimeout(() => setRoundSummary(null), 5200);
+    return () => clearTimeout(t);
+  }, [roundSummary]);
+
+  // Welcome ritual: when the game starts, reveal the ace draw card by card
+  const startedNow = gameData?.gameState?.isGameStarted === true;
+  const aceDraw = actualState?.aceDraw;
+  useEffect(() => {
+    const prev = prevStartedRef.current;
+    prevStartedRef.current = startedNow;
+    if (prev !== false || !startedNow || !aceDraw?.length) return;
+    setWelcome({ step: 0 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startedNow]);
+
+  useEffect(() => {
+    if (!welcome || !aceDraw?.length) return;
+    if (welcome.step < aceDraw.length) {
+      const t = setTimeout(() => setWelcome((w) => w && { step: w.step + 1 }), 650);
+      return () => clearTimeout(t);
+    }
+    const t = setTimeout(() => setWelcome(null), 3400);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [welcome]);
+
+  // ---- Derived state ----
   const gameState = gameData?.gameState || {};
   const numPlayers = gameState.numPlayers || 4;
   const players = gameData?.players || [];
@@ -189,6 +446,15 @@ export default function LiveGameScreen({ route, navigation }) {
     return c;
   };
 
+  // Seats shown in this round's play order, first player leftmost
+  const playOrder = Array(numPlayers).fill(0).map((_, i) => (firstPlayer + i) % numPlayers);
+  // x-offset of a seat's medallion relative to screen center (for sweeps)
+  const seatSlot = useCallback((playerIdx) => {
+    const o = playOrder.indexOf(playerIdx);
+    if (o === -1) return { x: 0 };
+    return { x: (o - (numPlayers - 1) / 2) * 96 };
+  }, [playOrder.join(','), numPlayers]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ---- Loading / error shells ----
   if (loading || !gameData) {
     return (
@@ -198,7 +464,7 @@ export default function LiveGameScreen({ route, navigation }) {
           {loading ? (
             <ActivityIndicator size="large" color={night.gold} />
           ) : (
-            <View style={{ alignItems: 'center', paddingHorizontal: 24 }}>
+            <View style={{ alignItems: 'center', paddingHorizontal: 24, alignSelf: 'stretch' }}>
               <Text style={styles.errorBig}>{error || 'Το παιχνίδι δεν βρέθηκε'}</Text>
               <GoldButton title="ΠΙΣΩ ΣΤΟ LOBBY" onPress={() => navigation.goBack()} style={{ marginTop: 20, alignSelf: 'stretch' }} />
             </View>
@@ -211,44 +477,55 @@ export default function LiveGameScreen({ route, navigation }) {
   // ---- Waiting room ----
   const renderWaiting = () => (
     <View style={{ flex: 1 }}>
-      <TableArc top={430} />
+      <TableArc top={SCREEN_H * 0.52} />
       <View style={{ alignItems: 'center', paddingTop: 26 }}>
         <Text style={styles.waitTitle}>Το τραπέζι ετοιμάζεται</Text>
         <Text style={styles.waitSub}>Μοιράσου τον κωδικό για να καθίσουν οι φίλοι σου</Text>
-
         <View style={styles.codePlate}>
-          <View>
-            <Text style={styles.codeLabel}>ΚΩΔΙΚΟΣ ΤΡΑΠΕΖΙΟΥ</Text>
-            <Text style={styles.codeValue}>{gameId}</Text>
-          </View>
+          <Text style={styles.codeLabel}>ΚΩΔΙΚΟΣ ΤΡΑΠΕΖΙΟΥ</Text>
+          <Text style={styles.codeValue}>{gameId}</Text>
         </View>
-
         <View style={styles.slotRow}>
           {Array(numPlayers).fill(null).map((_, idx) => {
             const p = players[idx];
             return (
               <View key={idx} style={styles.medallion}>
                 {p ? (
-                  <View style={[styles.medallionCircle, styles.slotCircle, p.userId === user.id && styles.medallionTurn]}>
-                    <Text style={[styles.medallionInitial, { fontSize: 24 }]}>{p.username[0].toUpperCase()}</Text>
+                  <View style={[styles.medallionCircle, p.userId === user.id && styles.medallionTurn]}>
+                    <Text style={styles.medallionInitial}>{p.username[0].toUpperCase()}</Text>
                   </View>
                 ) : (
-                  <View style={[styles.slotCircle, styles.slotEmpty]}>
-                    <Text style={{ color: night.goldBorder, fontSize: 26, fontWeight: '300' }}>+</Text>
+                  <View style={[styles.medallionCircle, styles.slotEmpty]}>
+                    <Text style={{ color: night.goldBorder, fontSize: 24, fontWeight: '300' }}>+</Text>
                   </View>
                 )}
-                <Text style={styles.medallionName} numberOfLines={1}>
-                  {p ? p.username : 'Ελεύθερη θέση'}
-                </Text>
+                <Text style={styles.medallionName} numberOfLines={1}>{p ? p.username : 'Ελεύθερη'}</Text>
                 <Text style={styles.medallionStats}>
                   {p ? (p.userId === gameData.hostId ? 'HOST' : 'ΕΤΟΙΜΟΣ') : `${players.length}/${numPlayers}`}
                 </Text>
+                {isHost && p && idx > 0 && (
+                  <TouchableOpacity
+                    onPress={() => {
+                      const order = players.map((_, i) => i);
+                      [order[idx - 1], order[idx]] = [order[idx], order[idx - 1]];
+                      sendAction('set-seats', { order });
+                    }}
+                    style={styles.seatMove}
+                    hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                  >
+                    <Text style={styles.seatMoveText}>‹ πιο νωρίς</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             );
           })}
         </View>
       </View>
-
+      {/* deck resting on the table */}
+      <View style={{ position: 'absolute', top: SCREEN_H * 0.56, alignSelf: 'center' }}>
+        <CardBack width={76} style={{ transform: [{ rotate: '5deg' }], position: 'absolute', left: 8 }} />
+        <CardBack width={76} style={{ transform: [{ rotate: '-4deg' }] }} />
+      </View>
       <View style={{ position: 'absolute', bottom: 40, left: 28, right: 28 }}>
         {isHost ? (
           <GoldButton
@@ -259,71 +536,55 @@ export default function LiveGameScreen({ route, navigation }) {
         ) : (
           <Text style={[styles.waitSub, { textAlign: 'center' }]}>Το παιχνίδι ξεκινά μόλις ο host δώσει το σύνθημα…</Text>
         )}
+        <GoldButton title="ΑΠΟΧΩΡΗΣΗ ΑΠΟ ΤΟ ΤΡΑΠΕΖΙ" outline onPress={leaveTable} style={{ marginTop: 10 }} />
       </View>
     </View>
   );
 
-  // ---- Fanned hand ----
+  // ---- The fanned hand (dealt with stagger, keyed by round so each deal re-animates) ----
   const renderHand = (playable) => {
     const n = myHand.length;
-    if (n === 0) {
-      return <Text style={[styles.mutedText, { textAlign: 'center', marginBottom: 30 }]}>Δεν έχεις άλλα φύλλα</Text>;
-    }
-    const spread = Math.min(58, 9 * Math.max(n - 1, 1));
+    if (n === 0) return null;
+    const spread = Math.min(52, 8.5 * Math.max(n - 1, 1));
     const step = n > 1 ? spread / (n - 1) : 0;
-    const R = 300;
+    const R = 330;
     return (
-      <View style={styles.handArea} pointerEvents="box-none">
+      <View key={`hand-${roundIdx}`} style={styles.handArea} pointerEvents="box-none">
         {myHand.map((card, i) => {
           const angle = -spread / 2 + i * step;
           const rad = (angle * Math.PI) / 180;
-          const x = Math.sin(rad) * R;
-          const y = (1 - Math.cos(rad)) * R;
           const canPlay = playable && isCardPlayable(card);
           return (
-            <View
+            <HandCard
               key={`${card.suit}${card.value}`}
-              style={{
-                position: 'absolute',
-                left: SCREEN_W / 2 - 40 + x,
-                bottom: 6 - y + (canPlay ? 16 : 0),
-                transform: [{ rotate: `${angle}deg` }],
-                zIndex: i,
-              }}
-            >
-              <PlayingCard
-                value={card.value}
-                suit={card.suit}
-                size="hand"
-                highlighted={canPlay}
-                disabled={playable && !canPlay}
-                onPress={playable ? () => sendAction('play-card', { card }) : undefined}
-              />
-            </View>
+              card={card}
+              x={Math.sin(rad) * R}
+              y={(1 - Math.cos(rad)) * R}
+              deg={angle}
+              lift={canPlay}
+              dealDelay={i * 70}
+              playable={canPlay}
+              dimmed={playable && !canPlay}
+              onPlay={(c) => sendAction('play-card', { card: c })}
+            />
           );
         })}
       </View>
     );
   };
 
-  // ---- Trick on the table ----
+  // ---- Trick area ----
   const renderTrick = () => {
     if (currentTrick.length === 0 && completedTrick) {
       return (
-        <View style={{ alignItems: 'center' }}>
-          <View style={styles.trickRow}>
-            {completedTrick.trick.map((play, idx) => (
-              <View key={idx} style={{ alignItems: 'center', marginHorizontal: 2, transform: [{ rotate: `${(idx - (completedTrick.trick.length - 1) / 2) * 7}deg` }] }}>
-                <PlayingCard value={play.card.value} suit={play.card.suit} size="mini"
-                  highlighted={completedTrick.winner === play.playerIdx} />
-                <Text style={styles.trickName} numberOfLines={1}>{playerNames[play.playerIdx]}</Text>
-              </View>
-            ))}
-          </View>
-          <View style={styles.winnerTag}>
-            <Text style={styles.winnerTagText}>Νίκη για τον/την {playerNames[completedTrick.winner]}</Text>
-          </View>
-        </View>
+        <TrickSweep
+          key={`sweep-${roundIdx}-${tricksWon.reduce((a, b) => a + b, 0)}`}
+          trick={completedTrick.trick}
+          winner={completedTrick.winner}
+          winnerName={playerNames[completedTrick.winner]}
+          myIdx={myIdx}
+          opponentSlot={seatSlot}
+        />
       );
     }
     if (currentTrick.length === 0) {
@@ -337,51 +598,41 @@ export default function LiveGameScreen({ route, navigation }) {
       <View style={{ alignItems: 'center' }}>
         <View style={styles.trickRow}>
           {currentTrick.map((play, idx) => (
-            <View key={idx} style={{ alignItems: 'center', marginHorizontal: -6, transform: [{ rotate: `${(idx - (currentTrick.length - 1) / 2) * 9}deg` }, { translateY: idx % 2 === 0 ? 6 : -4 }] }}>
-              <PlayingCard value={play.card.value} suit={play.card.suit} size="table" highlighted={idx === 0} />
-              <Text style={styles.trickName} numberOfLines={1}>{playerNames[play.playerIdx]}</Text>
-            </View>
+            <TableCard
+              key={`${play.card.suit}${play.card.value}`}
+              card={play.card}
+              deg={(idx - (currentTrick.length - 1) / 2) * 9}
+              fromBottom={play.playerIdx === myIdx}
+              highlighted={idx === 0}
+              name={playerNames[play.playerIdx]}
+            />
           ))}
         </View>
-        {leadSuit && (
-          <Text style={[styles.tableHint, { marginTop: 8 }]}>ΑΚΟΛΟΥΘΗΣΕ {leadSuit}</Text>
-        )}
+        {leadSuit && <Text style={[styles.tableHint, { marginTop: 10 }]}>ΑΚΟΛΟΥΘΗΣΕ {leadSuit}</Text>}
       </View>
     );
   };
 
-  // ---- Bidding chips ----
+  // ---- Bidding ----
   const renderBidding = () => (
     <View style={{ alignItems: 'center', paddingHorizontal: 20 }}>
       <Text style={styles.promptTitle}>
         {myTurn ? 'Πόσες νίκες θα κάνεις;' : `Προβλέπει ο/η ${playerNames[turn] || '...'}`}
       </Text>
-      {myTurn && isLastPredictor && (
-        <Text style={styles.promptSub}>ΠΡΟΒΛΕΠΕΙΣ ΤΕΛΕΥΤΑΙΟΣ</Text>
-      )}
+      {myTurn && isLastPredictor && <Text style={styles.promptSub}>ΠΡΟΒΛΕΠΕΙΣ ΤΕΛΕΥΤΑΙΟΣ</Text>}
       <View style={styles.bidWrap}>
         {[...Array(cardsThisRound + 1).keys()].map((val) => {
           const forbidden = myTurn && isLastPredictor && val === forbiddenPrediction;
-          const selected = predictions[myIdx] === val;
-          const enabled = myTurn && !forbidden && predictions[myIdx] == null;
           return (
-            <TouchableOpacity
-              key={val}
-              disabled={!enabled}
-              onPress={() => sendAction('predict', { value: val })}
-              activeOpacity={0.8}
-            >
-              {selected ? (
-                <LinearGradient colors={[night.goldBright, night.gold, night.goldDark]} style={[styles.bidChip, styles.bidChipSelected]}>
-                  <Text style={[styles.bidChipText, { color: '#241A05', fontWeight: '800' }]}>{val}</Text>
-                </LinearGradient>
-              ) : (
-                <View style={[styles.bidChip, forbidden ? styles.bidChipForbidden : (enabled ? styles.bidChipOpen : styles.bidChipIdle)]}>
-                  <Text style={[styles.bidChipText, forbidden && { color: night.mutedDark }]}>{val}</Text>
-                  {forbidden && <View style={styles.bidChipStrike} />}
-                </View>
-              )}
-            </TouchableOpacity>
+            <BidChip
+              key={`${roundIdx}-${val}`}
+              val={val}
+              delay={val * 35}
+              selected={predictions[myIdx] === val}
+              forbidden={forbidden}
+              enabled={myTurn && !forbidden && predictions[myIdx] == null}
+              onPick={() => sendAction('predict', { value: val })}
+            />
           );
         })}
       </View>
@@ -462,6 +713,7 @@ export default function LiveGameScreen({ route, navigation }) {
       onRequestClose={() => setEndDismissed(true)}
     >
       <View style={styles.modalBackdrop}>
+        <Fireworks />
         <View style={styles.panel}>
           <Text style={styles.panelTitle}>Τέλος Παιχνιδιού</Text>
           <Text style={styles.winnerLine}>
@@ -470,8 +722,11 @@ export default function LiveGameScreen({ route, navigation }) {
           <View style={{ gap: 9, marginTop: 16 }}>
             {ranked.map((row) => (
               <View key={row.idx} style={[styles.rankRow, row.isWinner && styles.rankRowWinner]}>
-                <View style={[styles.medallionCircle, { width: 40, height: 40, borderRadius: 20 }, row.isWinner && styles.medallionTurn]}>
-                  <Text style={[styles.medallionInitial, { fontSize: 16 }]}>{row.name[0]?.toUpperCase()}</Text>
+                <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+                  {row.isWinner && <Halo width={56} />}
+                  <View style={[styles.medallionCircle, { width: 40, height: 40, borderRadius: 20 }, row.isWinner && styles.medallionTurn]}>
+                    <Text style={[styles.medallionInitial, { fontSize: 16 }]}>{row.name[0]?.toUpperCase()}</Text>
+                  </View>
                 </View>
                 <View style={{ flex: 1, marginLeft: 11 }}>
                   <Text style={[styles.rankName, row.isWinner && { color: night.goldBright }]}>
@@ -492,9 +747,6 @@ export default function LiveGameScreen({ route, navigation }) {
     </Modal>
   );
 
-  // ---- Main game layout ----
-  const opponents = players.map((p, idx) => ({ p, idx })).filter(({ idx }) => idx !== myIdx);
-
   return (
     <View style={styles.page}>
       <Header subtitle={`Τραπέζι ${gameId}`} onBack={() => navigation.goBack()} />
@@ -503,34 +755,50 @@ export default function LiveGameScreen({ route, navigation }) {
 
         {!gameState.isGameStarted && !isCompleted ? renderWaiting() : (
           <View style={{ flex: 1 }}>
-            {/* HUD row */}
             <View style={styles.hudRow}>
               <NightChip label={`Γύρος ${roundIdx + 1}/${rounds.length || '—'}`} />
               <NightChip label={`${cardsThisRound} φύλλα`} />
               <NightChip gold label={`${trumpSuit} Ατού`} />
               <TouchableOpacity onPress={() => setShowScore(true)} activeOpacity={0.8}>
-                <NightChip label="Σκορ" style={{ borderStyle: 'dashed' }} />
+                <NightChip label="Σκορ" />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={confirmExit} activeOpacity={0.8}>
+                <NightChip label="Έξοδος" />
               </TouchableOpacity>
               <View style={[styles.connDot, { backgroundColor: connected ? '#4caf7d' : '#c0564c' }]} />
             </View>
 
-            {/* opponents medallions */}
-            <View style={styles.medallionRow}>
-              {opponents.map(({ p, idx }) => (
-                <Medallion
-                  key={idx}
-                  name={p.username}
-                  initial={p.username[0]?.toUpperCase()}
-                  isTurn={turn === idx && phase !== 'game-over'}
-                  bid={predictions[idx]}
-                  won={tricksWon[idx]}
-                />
-              ))}
-            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.medallionRow} style={{ flexGrow: 0 }}>
+              {playOrder.map((idx, orderPos) => {
+                const p = players[idx];
+                if (!p) return null;
+                return (
+                  <Medallion
+                    key={idx}
+                    name={p.username}
+                    initial={p.username[0]?.toUpperCase()}
+                    isTurn={turn === idx && phase !== 'game-over'}
+                    isMe={idx === myIdx}
+                    order={orderPos + 1}
+                    bid={predictions[idx]}
+                    won={tricksWon[idx]}
+                  />
+                );
+              })}
+            </ScrollView>
 
-            {/* table + phase content */}
-            <TableArc top={158} />
-            <View style={{ flex: 1, justifyContent: 'center', paddingBottom: 130 }}>
+            <TableArc top={162} />
+
+            {/* the deck resting at the top of the table */}
+            {(phase === 'predicting' || phase === 'playing') && (
+              <View style={{ position: 'absolute', top: 178, right: 26 }}>
+                <CardBack width={46} style={{ transform: [{ rotate: '6deg' }], position: 'absolute', left: 5, top: 2 }} />
+                <CardBack width={46} style={{ transform: [{ rotate: '-3deg' }] }} />
+              </View>
+            )}
+
+            <View style={{ flex: 1, justifyContent: 'center', paddingBottom: 150 }}>
               {phase === 'predicting' && renderBidding()}
               {phase === 'playing' && renderTrick()}
               {phase === 'game-over' && (
@@ -538,7 +806,6 @@ export default function LiveGameScreen({ route, navigation }) {
               )}
             </View>
 
-            {/* my stat strip */}
             <View style={styles.statStrip}>
               <View style={styles.statCell}>
                 <Text style={styles.statLabel}>ΠΡΟΒΛΕΨΗ</Text>
@@ -562,12 +829,82 @@ export default function LiveGameScreen({ route, navigation }) {
               )}
             </View>
 
-            {/* hand */}
             {renderHand(phase === 'playing')}
           </View>
         )}
 
-        {/* error toast */}
+        {/* welcome ritual: cards dealt around until the first ace picks the dealer */}
+        {welcome && aceDraw?.length ? (
+          <Pressable style={styles.roundOverlay} onPress={() => setWelcome(null)}>
+            <View style={styles.roundPanel}>
+              <Text style={styles.welcomeTitle}>Καλώς ήρθατε στο τραπέζι</Text>
+              <Text style={styles.roundOverlaySub}>ΜΟΙΡΑΖΟΥΜΕ ΜΕΧΡΙ ΤΟΝ ΠΡΩΤΟ ΑΣΣΟ</Text>
+              <View style={styles.aceRow}>
+                {aceDraw.slice(0, welcome.step).map((d, i) => (
+                  <View key={i} style={{ alignItems: 'center', margin: 3 }}>
+                    <CardView card={d.card} width={52} highlighted={d.card.value === 'A'} />
+                    <Text style={styles.aceName} numberOfLines={1}>{playerNames[d.playerIdx]}</Text>
+                  </View>
+                ))}
+              </View>
+              {welcome.step >= aceDraw.length && (
+                <View style={{ alignItems: 'center', marginTop: 14 }}>
+                  <Text style={styles.welcomeDealer}>
+                    Ο άσσος στον/στην {playerNames[actualState?.dealerIdx] || '—'} — μοιράζει!
+                  </Text>
+                  <Text style={styles.welcomeFirst}>
+                    Πρώτος παίζει ο/η {playerNames[(actualState?.dealerIdx + 1) % numPlayers] || '—'}
+                  </Text>
+                </View>
+              )}
+              <Text style={styles.roundOverlayHint}>άγγιξε για να ξεκινήσεις</Text>
+            </View>
+          </Pressable>
+        ) : null}
+
+        {/* round-end celebration: winners with halos + fireworks */}
+        {roundSummary && (
+          <Pressable style={styles.roundOverlay} onPress={() => setRoundSummary(null)}>
+            <Fireworks bursts={7} sparksPerBurst={16} />
+            <View style={styles.roundPanel}>
+              <Text style={styles.roundOverlayTitle}>Γύρος {roundSummary.round + 1} ολοκληρώθηκε</Text>
+              <Text style={styles.roundOverlaySub}>
+                {roundSummary.results.some(r => r.hit) ? 'ΠΕΤΥΧΑΝ ΤΗΝ ΠΡΟΒΛΕΨΗ ΤΟΥΣ' : 'ΚΑΝΕΙΣ ΔΕΝ ΠΕΤΥΧΕ ΤΗΝ ΠΡΟΒΛΕΨΗ'}
+              </Text>
+              <View style={styles.roundWinnersRow}>
+                {roundSummary.results.filter(r => r.hit).map((r) => (
+                  <View key={r.idx} style={{ alignItems: 'center', width: 86 }}>
+                    <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+                      <Halo width={82} />
+                      <View style={[styles.medallionCircle, styles.medallionTurn, { width: 58, height: 58, borderRadius: 29 }]}>
+                        <Text style={[styles.medallionInitial, { fontSize: 22 }]}>{r.name[0]?.toUpperCase()}</Text>
+                      </View>
+                    </View>
+                    <Text style={[styles.medallionName, { color: night.goldBright, marginTop: 7 }]} numberOfLines={1}>
+                      {r.name}{r.idx === myIdx ? ' (εσύ)' : ''}
+                    </Text>
+                    <Text style={styles.roundWinPts}>+{r.pts} π.</Text>
+                  </View>
+                ))}
+              </View>
+              <View style={{ gap: 6, marginTop: 16, alignSelf: 'stretch' }}>
+                {roundSummary.results.map((r) => (
+                  <View key={r.idx} style={styles.roundResultRow}>
+                    <Text style={[styles.roundResultName, r.hit && { color: night.goldBright }]} numberOfLines={1}>
+                      {r.name}{r.idx === myIdx ? ' (εσύ)' : ''}
+                    </Text>
+                    <Text style={styles.roundResultDetail}>
+                      πρόβλεψη {r.pred ?? '—'} · νίκες {r.tricks ?? '—'}
+                    </Text>
+                    <Text style={[styles.roundResultPts, r.hit && { color: night.gold }]}>+{r.pts}</Text>
+                  </View>
+                ))}
+              </View>
+              <Text style={styles.roundOverlayHint}>άγγιξε για συνέχεια</Text>
+            </View>
+          </Pressable>
+        )}
+
         {error ? (
           <View style={styles.toast}>
             <Text style={styles.toastText}>{error}</Text>
@@ -585,26 +922,21 @@ const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: night.bgBottom },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   errorBig: { color: night.danger, fontSize: 16, fontWeight: '600', textAlign: 'center' },
-  mutedText: { color: night.muted, fontSize: 13 },
 
-  // chips + HUD
   hudRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingTop: 12 },
   chip: {
     backgroundColor: night.glass, borderWidth: 1, borderColor: night.goldBorder,
     borderRadius: 999, paddingVertical: 6, paddingHorizontal: 12,
   },
   chipGold: { backgroundColor: night.goldSoft, borderColor: night.gold },
-  chipDanger: { backgroundColor: night.dangerBg, borderColor: night.dangerBorder },
   chipText: { color: night.text, fontSize: 12, fontWeight: '600' },
   chipTextGold: { color: night.gold, fontWeight: '700' },
-  chipTextDanger: { color: night.danger },
   connDot: { width: 9, height: 9, borderRadius: 5, marginLeft: 'auto' },
 
-  // medallions
-  medallionRow: { flexDirection: 'row', justifyContent: 'center', gap: 26, paddingTop: 14 },
+  medallionRow: { flexDirection: 'row', flexGrow: 1, justifyContent: 'center', gap: 18, paddingTop: 14, paddingHorizontal: 14 },
   medallion: { alignItems: 'center', width: 84 },
   medallionCircle: {
-    width: 56, height: 56, borderRadius: 28,
+    width: 52, height: 52, borderRadius: 26,
     backgroundColor: '#1d2b33', borderWidth: 1.5, borderColor: night.goldBorder,
     alignItems: 'center', justifyContent: 'center',
   },
@@ -613,12 +945,26 @@ const styles = StyleSheet.create({
     shadowColor: night.gold, shadowOpacity: 0.8, shadowRadius: 12, shadowOffset: { width: 0, height: 0 },
     elevation: 10,
   },
+  medallionInitial: { color: night.text, fontWeight: '700', fontSize: 20 },
   medallionMe: { borderColor: night.goldBorderStrong },
-  medallionInitial: { color: night.text, fontWeight: '700' },
+  orderBadge: {
+    position: 'absolute', top: -4, left: -4,
+    width: 19, height: 19, borderRadius: 10,
+    backgroundColor: night.goldDark, borderWidth: 1, borderColor: night.goldBright,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  orderBadgeText: { color: '#241A05', fontSize: 10, fontWeight: '800' },
+  seatMove: { marginTop: 4 },
+  seatMoveText: { color: night.gold, fontSize: 11, fontWeight: '700' },
+  welcomeTitle: { fontFamily: displayFont, color: night.text, fontSize: 27, textAlign: 'center' },
+  aceRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', marginTop: 22, maxWidth: 350 },
+  aceName: { color: night.muted, fontSize: 9.5, marginTop: 3, maxWidth: 54, textAlign: 'center' },
+  welcomeDealer: { fontFamily: displayFont, color: night.goldBright, fontSize: 19, textAlign: 'center' },
+  welcomeFirst: { color: night.text, fontSize: 14, fontWeight: '600', marginTop: 6, textAlign: 'center' },
   medallionName: { color: night.muted, fontSize: 11, fontWeight: '600', marginTop: 5 },
   medallionStats: { color: night.gold, fontSize: 11, fontWeight: '700', marginTop: 1 },
+  slotEmpty: { borderStyle: 'dashed', backgroundColor: night.glassDim },
 
-  // table
   tableArc: { position: 'absolute', left: -110, right: -110, bottom: 0, overflow: 'hidden' },
   tableArcFill: {
     flex: 1,
@@ -627,14 +973,13 @@ const styles = StyleSheet.create({
   },
   tableHint: { color: 'rgba(232,228,216,0.6)', fontSize: 12, fontWeight: '600', letterSpacing: 1.5, textAlign: 'center' },
   trickRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
-  trickName: { color: 'rgba(223,243,234,0.85)', fontSize: 10, marginTop: 3, maxWidth: 66, textAlign: 'center' },
+  trickName: { color: 'rgba(223,243,234,0.85)', fontSize: 10, marginTop: 3, maxWidth: 74, textAlign: 'center' },
   winnerTag: {
-    marginTop: 10, backgroundColor: night.goldBright, borderRadius: 999,
-    paddingVertical: 5, paddingHorizontal: 14,
+    marginTop: 12, backgroundColor: night.goldBright, borderRadius: 999,
+    paddingVertical: 5, paddingHorizontal: 14, alignSelf: 'center',
   },
   winnerTagText: { color: '#241A05', fontWeight: '700', fontSize: 12 },
 
-  // bidding
   promptTitle: { fontFamily: displayFont, color: night.text, fontSize: 24, textAlign: 'center' },
   promptSub: { color: night.muted, fontSize: 11, fontWeight: '700', letterSpacing: 2, marginTop: 5, textAlign: 'center' },
   bidWrap: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 11, marginTop: 18, maxWidth: 330 },
@@ -653,11 +998,10 @@ const styles = StyleSheet.create({
   },
   forbidNoteText: { color: night.danger, fontSize: 12, fontWeight: '600', textAlign: 'center' },
 
-  // stat strip
   statStrip: {
-    position: 'absolute', bottom: 158, alignSelf: 'center',
+    position: 'absolute', bottom: 172, alignSelf: 'center',
     flexDirection: 'row', alignItems: 'center', gap: 13,
-    backgroundColor: 'rgba(10,18,16,0.75)', borderWidth: 1, borderColor: night.goldBorder,
+    backgroundColor: 'rgba(10,18,16,0.8)', borderWidth: 1, borderColor: night.goldBorder,
     borderRadius: 14, paddingVertical: 7, paddingHorizontal: 16,
   },
   statCell: { alignItems: 'center' },
@@ -666,10 +1010,8 @@ const styles = StyleSheet.create({
   statDivider: { width: 1, height: 26, backgroundColor: 'rgba(216,178,92,0.3)' },
   turnBadge: { color: night.gold, fontSize: 10, fontWeight: '800', letterSpacing: 1.5 },
 
-  // hand
-  handArea: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 150 },
+  handArea: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 170 },
 
-  // waiting room
   waitTitle: { fontFamily: displayFont, color: night.text, fontSize: 25, textAlign: 'center' },
   waitSub: { color: night.muted, fontSize: 13, marginTop: 6, textAlign: 'center' },
   codePlate: {
@@ -679,12 +1021,9 @@ const styles = StyleSheet.create({
   },
   codeLabel: { color: night.muted, fontSize: 10, letterSpacing: 2, fontWeight: '600', textAlign: 'center' },
   codeValue: { fontFamily: displayFont, color: night.gold, fontSize: 29, letterSpacing: 5, marginTop: 2, textAlign: 'center' },
-  slotRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 14, marginTop: 28, paddingHorizontal: 14 },
-  slotCircle: { width: 62, height: 62, borderRadius: 31, alignItems: 'center', justifyContent: 'center' },
-  slotEmpty: { borderWidth: 1.5, borderStyle: 'dashed', borderColor: night.goldBorder, backgroundColor: night.glassDim },
+  slotRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 14, marginTop: 26, paddingHorizontal: 14 },
 
-  // modals
-  modalBackdrop: { flex: 1, backgroundColor: 'rgba(4,8,7,0.8)', alignItems: 'center', justifyContent: 'center', padding: 22 },
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(4,8,7,0.85)', alignItems: 'center', justifyContent: 'center', padding: 22 },
   panel: {
     alignSelf: 'stretch', backgroundColor: night.panel, borderWidth: 1.5, borderColor: night.goldBorderStrong,
     borderRadius: 20, padding: 22,
@@ -705,7 +1044,6 @@ const styles = StyleSheet.create({
   rankSub: { color: night.muted, fontSize: 11, marginTop: 1 },
   rankScore: { fontFamily: displayFont, color: night.text, fontSize: 22 },
 
-  // buttons
   btnGold: { height: 52, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
   btnGoldGlow: { shadowColor: night.gold, shadowOpacity: 0.45, shadowRadius: 16, shadowOffset: { width: 0, height: 0 }, elevation: 8 },
   btnGoldText: { color: '#241A05', fontWeight: '800', fontSize: 14, letterSpacing: 1 },
@@ -715,7 +1053,6 @@ const styles = StyleSheet.create({
   },
   btnOutlineText: { color: night.gold, fontWeight: '700', fontSize: 13, letterSpacing: 1 },
 
-  // score table
   tr: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: 'rgba(216,178,92,0.18)', paddingVertical: 7 },
   th: { color: night.text, fontWeight: '800', fontSize: 12 },
   td: { color: night.text, fontSize: 12 },
@@ -723,7 +1060,28 @@ const styles = StyleSheet.create({
   cellPlayer: { width: 96, textAlign: 'center' },
   scoreLegend: { color: night.mutedDark, fontSize: 11, marginTop: 10, textAlign: 'center' },
 
-  // toast
+  roundOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(4,8,7,0.88)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+    zIndex: 50,
+  },
+  roundPanel: { alignItems: 'center', alignSelf: 'stretch', maxWidth: 380 },
+  roundOverlayTitle: { fontFamily: displayFont, color: night.text, fontSize: 26, textAlign: 'center' },
+  roundOverlaySub: { color: night.muted, fontSize: 11, fontWeight: '700', letterSpacing: 2, marginTop: 6, textAlign: 'center' },
+  roundWinnersRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 14, marginTop: 30 },
+  roundWinPts: { fontFamily: displayFont, color: night.gold, fontSize: 17, marginTop: 2 },
+  roundResultRow: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(216,178,92,0.25)',
+    borderRadius: 11, paddingVertical: 8, paddingHorizontal: 13,
+  },
+  roundResultName: { flex: 1, color: night.text, fontWeight: '700', fontSize: 14 },
+  roundResultDetail: { color: night.muted, fontSize: 12, marginRight: 10 },
+  roundResultPts: { fontFamily: displayFont, color: night.text, fontSize: 17, minWidth: 40, textAlign: 'right' },
+  roundOverlayHint: { color: night.mutedDark, fontSize: 11, marginTop: 20 },
   toast: {
     position: 'absolute', top: 60, alignSelf: 'center',
     backgroundColor: night.dangerBg, borderWidth: 1, borderColor: night.dangerBorder,

@@ -108,6 +108,24 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const completeGame = async (gameId) => {
+    try {
+      const { data } = await axios.post(`${API_URL}/game/${gameId}/complete`, { userId: user.id });
+      return { success: true, ...data };
+    } catch (error) {
+      return { success: false, error: error.response?.data?.error || 'Failed to complete game' };
+    }
+  };
+
+  const completeActualGame = async (gameId) => {
+    try {
+      const { data } = await axios.post(`${API_URL}/actual-game/${gameId}/complete`, { userId: user.id });
+      return { success: true, ...data };
+    } catch (error) {
+      return { success: false, error: error.response?.data?.error || 'Failed to complete game' };
+    }
+  };
+
   const getActualGameHistory = async () => {
     try {
       const { data } = await axios.get(`${API_URL}/actual-games/history`);
@@ -121,6 +139,7 @@ export const AuthProvider = ({ children }) => {
     user, loading,
     login, register, logout,
     createGame, joinGame, listGames, checkCurrentGame, getActualGameHistory,
+    completeGame, completeActualGame,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

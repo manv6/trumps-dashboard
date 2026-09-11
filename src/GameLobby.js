@@ -22,7 +22,6 @@ export default function GameLobby() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [gameIdInput, setGameIdInput] = useState('');
   const [numPlayers, setNumPlayers] = useState(4);
   const [gameMode, setGameMode] = useState('normal');
   const [currentGameMode, setCurrentGameMode] = useState('normal');
@@ -52,13 +51,6 @@ export default function GameLobby() {
   };
 
   const handleCreateGame = async () => {
-    // Check if user is already in a game
-    const userInGame = await checkUserCurrentGame();
-    if (userInGame) {
-      setError(`You are already in game ${userCurrentGame}. Please leave that game first.`);
-      return;
-    }
-
     setLoading(true);
     setError('');
     setSuccess('');
@@ -71,37 +63,6 @@ export default function GameLobby() {
       setTimeout(() => {
         navigate(gamePath(gameMode, result.gameId));
       }, 1500);
-    } else {
-      setError(result.error);
-    }
-    
-    setLoading(false);
-  };
-
-  const handleJoinGame = async () => {
-    if (!gameIdInput.trim()) {
-      setError('Please enter a game ID');
-      return;
-    }
-
-    // Check if user is already in a game
-    const userInGame = await checkUserCurrentGame();
-    if (userInGame) {
-      setError(`You are already in game ${userCurrentGame}. Please leave that game first.`);
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-    setSuccess('');
-
-    const result = await joinGame(gameIdInput.trim().toUpperCase());
-    
-    if (result.success) {
-      setSuccess('Joined game successfully!');
-      setTimeout(() => {
-        navigate(gamePath(result.game?.mode, gameIdInput.trim().toUpperCase()));
-      }, 1000);
     } else {
       setError(result.error);
     }
@@ -145,13 +106,6 @@ export default function GameLobby() {
 
   const handleJoinFromList = async (game) => {
     const gameId = game.gameId;
-    // Check if user is already in a game
-    const userInGame = await checkUserCurrentGame();
-    if (userInGame) {
-      setError(`You are already in game ${userCurrentGame}. Please leave that game first.`);
-      return;
-    }
-
     setLoading(true);
     setError('');
     setSuccess('');
@@ -290,55 +244,6 @@ export default function GameLobby() {
             </Card>
           </Grid>
 
-          <Grid item xs={12} md={6}>
-            <Card sx={{ 
-              borderRadius: 3,
-              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-              height: '100%'
-            }}>
-              <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-                <Typography 
-                  variant="h6" 
-                  gutterBottom
-                  sx={{ 
-                    fontSize: { xs: '1.125rem', sm: '1.25rem' },
-                    fontWeight: 600
-                  }}
-                >
-                  🚪 Join Existing Game
-                </Typography>
-                <Stack spacing={3}>
-                  <TextField
-                    label="Game ID"
-                    value={gameIdInput}
-                    onChange={(e) => setGameIdInput(e.target.value.toUpperCase())}
-                    placeholder="Enter 8-character game code"
-                    fullWidth
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        borderRadius: 2
-                      }
-                    }}
-                  />
-                  <Button
-                    variant="contained"
-                    size="large"
-                    onClick={handleJoinGame}
-                    disabled={loading || !gameIdInput.trim()}
-                    fullWidth
-                    sx={{
-                      py: { xs: 1.5, sm: 2 },
-                      fontSize: { xs: '1rem', sm: '1.125rem' },
-                      fontWeight: 600,
-                      borderRadius: 2,
-                    }}
-                  >
-                    {loading ? 'Joining Game...' : 'Join Game'}
-                  </Button>
-                </Stack>
-              </CardContent>
-            </Card>
-          </Grid>
         </Grid>
 
         {/* Games Section with Tabs */}
@@ -453,10 +358,7 @@ export default function GameLobby() {
                                 }
                                 color={isUserInGame ? "success" : "primary"}
                                 size="small"
-                                disabled={
-                                  isUserInGame ? false : 
-                                  (game.spotsAvailable === 0 || loading || (isInGame && !isUserInGame))
-                                }
+                                disabled={!isUserInGame && (game.spotsAvailable === 0 || loading)}
                                 onClick={() => {
                                   if (isUserInGame) {
                                     navigate(gamePath(game.mode, game.gameId));
@@ -466,9 +368,7 @@ export default function GameLobby() {
                                 }}
                                 sx={{ minWidth: '80px' }}
                               >
-                                {isUserInGame ? 'Enter Game' : 
-                                 game.spotsAvailable === 0 ? 'Full' : 
-                                 (isInGame && !isUserInGame) ? 'In Other Game' : 'Join'}
+                                {isUserInGame ? 'Enter Game' : game.spotsAvailable === 0 ? 'Full' : 'Join'}
                               </Button>
                             </TableCell>
                           </TableRow>
@@ -540,7 +440,7 @@ export default function GameLobby() {
                                 color="primary"
                                 size="small"
                                 fullWidth
-                                disabled={!isUserInGame && (game.spotsAvailable === 0 || (isInGame && !isUserInGame))}
+                                disabled={!isUserInGame && game.spotsAvailable === 0}
                                 onClick={() => {
                                   if (isUserInGame) {
                                     navigate(gamePath(game.mode, game.gameId));
@@ -554,9 +454,7 @@ export default function GameLobby() {
                                   fontWeight: 600
                                 }}
                               >
-                                {isUserInGame ? 'Enter Game' : 
-                                 game.spotsAvailable === 0 ? 'Full' : 
-                                 (isInGame && !isUserInGame) ? 'In Other Game' : 'Join'}
+                                {isUserInGame ? 'Enter Game' : game.spotsAvailable === 0 ? 'Full' : 'Join'}
                               </Button>
                             </CardContent>
                           </Card>

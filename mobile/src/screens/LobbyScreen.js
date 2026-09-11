@@ -4,7 +4,7 @@ import {
 } from 'react-native';
 import { useAuth } from '../AuthContext';
 import Header from '../components/Header';
-import { Btn, Card, Chip, Field, SectionTitle, PageBg } from '../components/UI';
+import { Btn, Card, Chip, SectionTitle, PageBg } from '../components/UI';
 import { night, displayFont } from '../theme';
 
 const screenFor = (mode) => (mode === 'actual' ? 'LiveGame' : 'ScoreGame');
@@ -13,7 +13,6 @@ export default function LobbyScreen({ navigation }) {
   const { user, createGame, joinGame, listGames, checkCurrentGame } = useAuth();
   const [gameMode, setGameMode] = useState('actual');
   const [numPlayers, setNumPlayers] = useState(4);
-  const [joinCode, setJoinCode] = useState('');
   const [games, setGames] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -41,7 +40,6 @@ export default function LobbyScreen({ navigation }) {
   }, [error]);
 
   const handleCreate = async () => {
-    if (current) return setError(`Είσαι ήδη στο παιχνίδι ${current.gameId}`);
     setBusy(true);
     const result = await createGame(numPlayers, gameMode);
     setBusy(false);
@@ -50,9 +48,6 @@ export default function LobbyScreen({ navigation }) {
   };
 
   const handleJoin = async (gameId, mode) => {
-    if (current && current.gameId !== gameId) {
-      return setError(`Είσαι ήδη στο παιχνίδι ${current.gameId}`);
-    }
     setBusy(true);
     const result = await joinGame(gameId);
     setBusy(false);
@@ -131,33 +126,18 @@ export default function LobbyScreen({ navigation }) {
             <Btn title="ΔΗΜΙΟΥΡΓΙΑ ΤΡΑΠΕΖΙΟΥ" onPress={handleCreate} loading={busy} />
           </Card>
 
-          {/* Join by code */}
-          <Card style={styles.section}>
-            <SectionTitle>Μπες με Κωδικό</SectionTitle>
-            <View style={styles.joinRow}>
-              <Field
-                placeholder="π.χ. AB12CD34"
-                value={joinCode}
-                onChangeText={(v) => setJoinCode(v.toUpperCase())}
-                autoCapitalize="characters"
-                style={{ flex: 1, marginRight: 10, letterSpacing: 2 }}
-              />
-              <Btn
-                title="ΜΠΕΣ"
-                variant="outline"
-                disabled={!joinCode.trim()}
-                onPress={() => handleJoin(joinCode.trim(), null)}
-              />
-            </View>
-          </Card>
-
           {/* Available games */}
           <Card style={styles.section}>
             <View style={styles.listHeader}>
               <SectionTitle style={{ marginBottom: 0 }}>Ανοιχτά Τραπέζια</SectionTitle>
-              <TouchableOpacity onPress={() => navigation.navigate('History')}>
-                <Text style={styles.historyLink}>Ιστορικό ›</Text>
-              </TouchableOpacity>
+              <View style={{ flexDirection: 'row', gap: 16 }}>
+                <TouchableOpacity onPress={() => navigation.navigate('Help')}>
+                  <Text style={styles.historyLink}>Βοήθεια ›</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => navigation.navigate('History')}>
+                  <Text style={styles.historyLink}>Ιστορικό ›</Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
             {games.length === 0 ? (
@@ -187,7 +167,7 @@ export default function LobbyScreen({ navigation }) {
                       title={isMine ? 'ΜΠΕΣ' : full ? 'ΠΛΗΡΕΣ' : 'ΜΠΕΣ'}
                       variant={isMine ? 'primary' : 'outline'}
                       small
-                      disabled={!isMine && (full || (current && current.gameId !== game.gameId))}
+                      disabled={!isMine && full}
                       onPress={() => handleJoin(game.gameId, game.mode)}
                     />
                   </View>
