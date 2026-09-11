@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal,
-  ActivityIndicator, Dimensions, Animated, Easing, Pressable, Alert,
+  ActivityIndicator, Dimensions, Animated, Easing, Pressable,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import io from 'socket.io-client';
@@ -11,6 +11,7 @@ import Header from '../components/Header';
 import CardView from '../components/cards/CardView';
 import CardBack from '../components/cards/CardBack';
 import Halo from '../components/effects/Halo';
+import ExitDialog from '../components/ExitDialog';
 import Fireworks from '../components/effects/Fireworks';
 import Trophy from '../components/effects/Trophy';
 import ScoreSheet from '../components/ScoreSheet';
@@ -271,6 +272,7 @@ export default function LiveGameScreen({ route, navigation }) {
   const [showEnd, setShowEnd] = useState(false);
   const [endDismissed, setEndDismissed] = useState(false);
   const [showScore, setShowScore] = useState(false);
+  const [showExit, setShowExit] = useState(false);
   const [roundSummary, setRoundSummary] = useState(null); // { round, results } shown between rounds
   const [welcome, setWelcome] = useState(null); // { draw, dealerIdx, step } opening ritual
   const prevStartedRef = useRef(null);
@@ -328,20 +330,7 @@ export default function LiveGameScreen({ route, navigation }) {
     navigation.goBack();
   }, [gameId, navigation]);
 
-  const confirmExit = () => {
-    const buttons = [
-      { text: 'Ακύρωση', style: 'cancel' },
-      { text: 'Έξοδος', onPress: leaveTable },
-    ];
-    if (isHost && gameState.isGameStarted && !isCompleted) {
-      buttons.push({
-        text: 'Τερματισμός τραπεζιού',
-        style: 'destructive',
-        onPress: async () => { await completeActualGame(gameId); navigation.goBack(); },
-      });
-    }
-    Alert.alert('Έξοδος από το τραπέζι', 'Τι θέλεις να κάνεις;', buttons);
-  };
+  const confirmExit = () => setShowExit(true);
 
   // When a round finishes (server advanced to the next one), celebrate it:
   // show every player's result with halos + fireworks for the winners.
@@ -892,6 +881,13 @@ export default function LiveGameScreen({ route, navigation }) {
 
       {renderScoreModal()}
       {renderEndModal()}
+      <ExitDialog
+        visible={showExit}
+        onClose={() => setShowExit(false)}
+        onLeave={() => { setShowExit(false); leaveTable(); }}
+        canTerminate={isHost && gameState.isGameStarted && !isCompleted}
+        onTerminate={async () => { setShowExit(false); await completeActualGame(gameId); navigation.goBack(); }}
+      />
     </View>
   );
 }

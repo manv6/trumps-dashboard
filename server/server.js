@@ -27,7 +27,11 @@ app.use(express.json());
 
 // Serve static files from React build (for production)
 if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '../build')));
+  const fs = require('fs');
+  const expoWeb = path.join(__dirname, '../mobile/dist');
+  const staticDir = fs.existsSync(expoWeb) ? expoWeb : path.join(__dirname, '../build');
+  app.use(express.static(staticDir));
+  app.locals.staticDir = staticDir;
 }
 
 // MongoDB connection (with fallback to in-memory storage)
@@ -1585,7 +1589,7 @@ app.get('/api/health', (req, res) => {
 // Catch-all handler: send back React's index.html file for production
 if (process.env.NODE_ENV === 'production') {
   app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../build/index.html'));
+    res.sendFile(path.join(app.locals.staticDir || path.join(__dirname, '../build'), 'index.html'));
   });
 }
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal,
-  ActivityIndicator, Animated, Easing, Dimensions, Alert,
+  ActivityIndicator, Animated, Easing, Dimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import io from 'socket.io-client';
@@ -9,6 +9,7 @@ import { useAuth } from '../AuthContext';
 import { SERVER_URL } from '../config';
 import Header from '../components/Header';
 import Halo from '../components/effects/Halo';
+import ExitDialog from '../components/ExitDialog';
 import Fireworks from '../components/effects/Fireworks';
 import Trophy from '../components/effects/Trophy';
 import ScoreSheet from '../components/ScoreSheet';
@@ -105,6 +106,7 @@ export default function ScoreGameScreen({ route, navigation }) {
   const [viewRound, setViewRound] = useState(null); // null = follow currentRound
   const [picker, setPicker] = useState(null); // { type: 'pred'|'tricks', playerIdx }
   const [showSheet, setShowSheet] = useState(false);
+  const [showExit, setShowExit] = useState(false);
   const socketRef = useRef(null);
 
   useEffect(() => {
@@ -217,20 +219,7 @@ export default function ScoreGameScreen({ route, navigation }) {
     navigation.goBack();
   };
 
-  const confirmExit = () => {
-    const buttons = [
-      { text: 'Ακύρωση', style: 'cancel' },
-      { text: 'Έξοδος', onPress: leaveTable },
-    ];
-    if (isHost && !gameState.isGameCompleted) {
-      buttons.push({
-        text: 'Τερματισμός τραπεζιού',
-        style: 'destructive',
-        onPress: async () => { await completeGame(gameId); navigation.goBack(); },
-      });
-    }
-    Alert.alert('Έξοδος από το τραπέζι', 'Τι θέλεις να κάνεις;', buttons);
-  };
+  const confirmExit = () => setShowExit(true);
 
   if (loading || !gameData) {
     return (
@@ -389,6 +378,14 @@ export default function ScoreGameScreen({ route, navigation }) {
           </View>
         ) : null}
       </View>
+
+      <ExitDialog
+        visible={showExit}
+        onClose={() => setShowExit(false)}
+        onLeave={() => { setShowExit(false); leaveTable(); }}
+        canTerminate={isHost && !gameState.isGameCompleted}
+        onTerminate={async () => { setShowExit(false); await completeGame(gameId); navigation.goBack(); }}
+      />
 
       {/* full score sheet */}
       <Modal visible={showSheet} transparent animationType="slide" onRequestClose={() => setShowSheet(false)}>
