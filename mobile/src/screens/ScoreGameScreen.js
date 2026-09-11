@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal,
-  ActivityIndicator, Animated, Easing, Dimensions,
+  ActivityIndicator, Animated, Easing, Dimensions, Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import io from 'socket.io-client';
@@ -9,6 +9,7 @@ import { useAuth } from '../AuthContext';
 import { SERVER_URL } from '../config';
 import Header from '../components/Header';
 import Halo from '../components/effects/Halo';
+import Fireworks from '../components/effects/Fireworks';
 import { night, displayFont } from '../theme';
 
 const SCREEN_W = Dimensions.get('window').width;
@@ -88,19 +89,19 @@ function ValueBadge({ label, value, mine, active, onPress }) {
   );
 }
 
-// Scoreboard mode as a real game: the table deals the turn order, the next
-// predictor glows, the forbidden bid is enforced, and values are picked from
-// gold chips — no keyboard anywhere.
+// Scoreboard mode: a Midnight-styled score sheet. The HOST keeps the sheet
+// for everyone (and can reorder seats); players may fill their own line.
+// Values are picked from gold chips — no keyboard anywhere.
 export default function ScoreGameScreen({ route, navigation }) {
   const { gameId } = route.params;
-  const { user, joinGame } = useAuth();
+  const { user, joinGame, completeGame } = useAuth();
 
   const [gameData, setGameData] = useState(null);
   const [connected, setConnected] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [viewRound, setViewRound] = useState(null); // null = follow currentRound
-  const [picker, setPicker] = useState(null); // { type: 'pred'|'tricks' }
+  const [picker, setPicker] = useState(null); // { type: 'pred'|'tricks', playerIdx }
   const socketRef = useRef(null);
 
   useEffect(() => {
@@ -189,21 +190,43 @@ export default function ScoreGameScreen({ route, navigation }) {
   const totalPoints = (pIdx) =>
     (playerData[pIdx]?.points || []).reduce((a, b) => a + (b || 0), 0);
 
-  const submitValue = (type, value) => {
+  const isHost = gameData?.hostId === user.id;
+
+  const submitValue = (type, value, playerIdx) => {
     sendAction(type === 'pred' ? 'update-prediction' : 'update-tricks', {
       roundIdx: shownRound,
-      playerIdx: myIdx,
+      playerIdx,
       value,
     });
     setPicker(null);
   };
 
-  const openPicker = (type) => {
+  const openPicker = (type, playerIdx) => {
     if (type === 'tricks' && !allPredsDone) {
       setError('Πρώτα οι προβλέψεις όλων, μετά οι νίκες');
       return;
     }
-    setPicker({ type });
+    setPicker({ type, playerIdx });
+  };
+
+  const leaveTable = () => {
+    if (socketRef.current?.connected) socketRef.current.emit('leave-game', { gameId });
+    navigation.goBack();
+  };
+
+  const confirmExit = () => {
+    const buttons = [
+      { text: 'Ακύρωση', style: 'cancel' },
+      { text: 'Έξοδος', onPress: leaveTable },
+    ];
+    if (isHost && !gameState.isGameCompleted) {
+      buttons.push({
+        text: 'Τερματισμός τραπεζιού',
+        style: 'destructive',
+        onPress: async () => { await completeGame(gameId); navigation.goBack(); },
+      });
+    }
+    Alert.alert('Έξοδος από το τραπέζι', 'Τι θέλεις να κάνεις;', buttons);
   };
 
   if (loading || !gameData) {
@@ -229,8 +252,6 @@ export default function ScoreGameScreen({ route, navigation }) {
     .sort((a, b) => b.pts - a.pts);
   const leaderIdx = standings[0]?.pts > 0 ? standings[0].idx : -1;
 
-  const myForbidden = forbiddenFor(myIdx);
-
   return (
     <View style={styles.page}>
       <Header subtitle={`Σκορ ${gameId}`} onBack={() => navigation.goBack()} />
@@ -246,39 +267,36 @@ export default function ScoreGameScreen({ route, navigation }) {
             <NightChip label={`Γύρος ${shownRound + 1}/${rounds.length}`} />
             <NightChip label={`${cards} φύλλα`} />
             <NightChip gold label={`Σύνολο ${sumPreds}/${cards}`} />
+            <TouchableOpacity onPress={confirmExit} activeOpacity={0.8}>
+              <NightChip label="Έξοδος" />
+            </TouchableOpacity>
             <View style={[styles.connDot, { backgroundColor: connected ? '#4caf7d' : '#c0564c' }]} />
           </View>
           {shownRound !== currentRound && (
             <Text style={styles.viewingPast}>Βλέπεις τον γύρο {shownRound + 1} — ο τρέχων είναι ο {currentRound + 1}</Text>
           )}
 
-          {/* whose move */}
-          <Text style={styles.turnLine}>
-            {!allPredsDone
-              ? (activePredictor === myIdx
-                ? 'Σειρά σου να προβλέψεις'
-                : `Προβλέπει ο/η ${players[activePredictor]?.username || '—'}`)
-              : 'Παίξτε τα χαρτιά και δηλώστε τις νίκες σας'}
-          </Text>
+          <Text style={styles.turnLine}>Φύλλο Σκορ</Text>
           <Text style={styles.orderLine}>
             Σειρά: {predictionOrder.map((pi) => players[pi]?.username?.split(' ')[0]).join(' → ')}
+            {isHost ? '  ·  ως host γράφεις για όλους' : ''}
           </Text>
 
           {/* player rows */}
           <View style={{ gap: 9, marginTop: 14 }}>
             {players.map((p, idx) => {
               const mine = idx === myIdx;
+              const canEdit = isHost || mine;
               const pred = predOf(idx);
               const tricks = tricksOf(idx);
               const pts = playerData[idx]?.points?.[shownRound];
-              const isActive = !allPredsDone && activePredictor === idx;
               const isLast = idx === lastPlayerIdx;
-              const forb = isActive && isLast ? forbiddenFor(idx) : null;
+              const forb = isLast && pred === undefined ? forbiddenFor(idx) : null;
               return (
-                <View key={idx} style={[styles.playerCard, mine && styles.playerCardMine, isActive && styles.playerCardActive]}>
+                <View key={idx} style={[styles.playerCard, mine && styles.playerCardMine]}>
                   <View style={{ alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
                     {idx === leaderIdx && <Halo width={54} />}
-                    <View style={[styles.avatar, isActive && styles.avatarActive]}>
+                    <View style={styles.avatar}>
                       <Text style={styles.avatarText}>{p.username[0]?.toUpperCase()}</Text>
                     </View>
                   </View>
@@ -287,7 +305,7 @@ export default function ScoreGameScreen({ route, navigation }) {
                       {p.username}{mine ? ' (εσύ)' : ''}
                     </Text>
                     <Text style={styles.playerMeta}>
-                      {idx === firstPlayerIdx ? 'μοιράζει πρώτος · ' : ''}{isLast ? 'προβλέπει τελευταίος · ' : ''}{totalPoints(idx)} π. σύνολο
+                      {idx === firstPlayerIdx ? 'πρώτος · ' : ''}{isLast ? 'τελευταίος · ' : ''}{totalPoints(idx)} π. σύνολο
                     </Text>
                     {forb !== null && forb >= 0 && forb <= cards && (
                       <Text style={styles.forbHint}>ΟΧΙ {forb} — το σύνολο δεν γίνεται {cards}</Text>
@@ -297,17 +315,29 @@ export default function ScoreGameScreen({ route, navigation }) {
                         {pred !== undefined && pred === tricks ? `πέτυχε! +${pts} π.` : `+${pts} π. στον γύρο`}
                       </Text>
                     )}
+                    {isHost && idx > 0 && (
+                      <TouchableOpacity
+                        onPress={() => {
+                          const order = players.map((_, i) => i);
+                          [order[idx - 1], order[idx]] = [order[idx], order[idx - 1]];
+                          sendAction('set-seats', { order });
+                        }}
+                        hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                      >
+                        <Text style={styles.seatMoveText}>↑ μετακίνηση πιο νωρίς</Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
                   <View style={{ flexDirection: 'row', gap: 10 }}>
                     <ValueBadge
-                      label="ΠΡΟΒΛΕΨΗ" value={pred} mine={mine}
-                      active={isActive}
-                      onPress={mine ? () => openPicker('pred') : undefined}
+                      label="ΠΡΟΒΛΕΨΗ" value={pred} mine={canEdit}
+                      active={false}
+                      onPress={canEdit ? () => openPicker('pred', idx) : undefined}
                     />
                     <ValueBadge
-                      label="ΝΙΚΕΣ" value={tricks} mine={mine}
+                      label="ΝΙΚΕΣ" value={tricks} mine={canEdit}
                       active={false}
-                      onPress={mine && allPredsDone ? () => openPicker('tricks') : undefined}
+                      onPress={canEdit && allPredsDone ? () => openPicker('tricks', idx) : undefined}
                     />
                   </View>
                 </View>
@@ -322,7 +352,7 @@ export default function ScoreGameScreen({ route, navigation }) {
               <GoldButton title="ΤΡΕΧΩΝ ΓΥΡΟΣ" small onPress={() => setViewRound(null)} />
             ) : (
               <GoldButton
-                title="ΕΠΟΜΕΝΟΣ ΓΥΡΟΣ ›" small
+                title={currentRound === rounds.length - 1 ? 'ΟΛΟΚΛΗΡΩΣΗ ΠΑΙΧΝΙΔΙΟΥ' : 'ΕΠΟΜΕΝΟΣ ΓΥΡΟΣ ›'} small
                 disabled={currentRound >= rounds.length}
                 onPress={() => { sendAction('advance-round'); setViewRound(null); }}
               />
@@ -354,25 +384,56 @@ export default function ScoreGameScreen({ route, navigation }) {
         ) : null}
       </View>
 
+      {/* end of game: fireworks + final standings */}
+      {gameState.isGameCompleted && (
+        <View style={styles.endOverlay} pointerEvents="box-none">
+          <Fireworks />
+          <View style={styles.endPanel}>
+            <Text style={styles.pickerTitle}>Τέλος Παιχνιδιού</Text>
+            <Text style={styles.endWinnerLine}>
+              ΝΙΚΗΤΗΣ · {standings[0]?.name?.toUpperCase() || '—'}
+            </Text>
+            <View style={{ gap: 8, marginTop: 16, alignSelf: 'stretch' }}>
+              {standings.map((row, rank) => (
+                <View key={row.idx} style={[styles.standRow, rank === 0 && styles.standRowFirst]}>
+                  {rank === 0 && (
+                    <View style={{ width: 30, alignItems: 'center', justifyContent: 'center' }}>
+                      <Halo width={30} />
+                    </View>
+                  )}
+                  {rank !== 0 && <Text style={styles.standRank}>{rank + 1}</Text>}
+                  <Text style={[styles.standName, row.idx === myIdx && { color: night.goldBright }]}>
+                    {row.name}{row.idx === myIdx ? ' (εσύ)' : ''}
+                  </Text>
+                  <Text style={[styles.standPts, rank === 0 && { color: night.gold }]}>{row.pts} π.</Text>
+                </View>
+              ))}
+            </View>
+            <GoldButton title="ΠΙΣΩ ΣΤΟ LOBBY" onPress={() => navigation.goBack()} style={{ marginTop: 18, alignSelf: 'stretch' }} />
+          </View>
+        </View>
+      )}
+
       {/* chip picker — the game way to enter a value */}
       <Modal visible={!!picker} transparent animationType="fade" onRequestClose={() => setPicker(null)}>
         <TouchableOpacity style={styles.pickerBackdrop} activeOpacity={1} onPress={() => setPicker(null)}>
           <View style={styles.pickerPanel}>
             <Text style={styles.pickerTitle}>
-              {picker?.type === 'pred' ? 'Πόσες νίκες προβλέπεις;' : 'Πόσες νίκες έκανες;'}
+              {picker?.type === 'pred' ? 'Πρόβλεψη' : 'Νίκες'} — {players[picker?.playerIdx]?.username || ''}
             </Text>
             <Text style={styles.pickerSub}>Γύρος {shownRound + 1} · {cards} φύλλα</Text>
             <View style={styles.pickerWrap}>
               {[...Array(cards + 1).keys()].map((val) => {
-                const isForbidden = picker?.type === 'pred' && myForbidden !== null && val === myForbidden
-                  && activePredictor === myIdx;
-                const current = picker?.type === 'pred' ? predOf(myIdx) : tricksOf(myIdx);
+                const targetIdx = picker?.playerIdx ?? myIdx;
+                const forb = picker?.type === 'pred' ? forbiddenFor(targetIdx) : null;
+                const isForbidden = forb !== null && val === forb && forb >= 0;
+                const current = picker?.type === 'pred' ? predOf(targetIdx) : tricksOf(targetIdx);
                 const selected = current === val;
                 return (
                   <TouchableOpacity
                     key={val}
                     disabled={isForbidden}
-                    onPress={() => submitValue(picker.type, val)}
+                    onPress={() => submitValue(picker.type, val, picker.playerIdx)}
                     activeOpacity={0.8}
                   >
                     {selected ? (
@@ -389,7 +450,7 @@ export default function ScoreGameScreen({ route, navigation }) {
                 );
               })}
             </View>
-            <TouchableOpacity onPress={() => submitValue(picker.type, undefined)}>
+            <TouchableOpacity onPress={() => submitValue(picker.type, undefined, picker?.playerIdx)}>
               <Text style={styles.pickerClear}>Καθάρισε την τιμή</Text>
             </TouchableOpacity>
           </View>
@@ -498,6 +559,16 @@ const styles = StyleSheet.create({
   pickChipStrike: { position: 'absolute', width: 38, height: 2, borderRadius: 2, backgroundColor: '#8a4a42', transform: [{ rotate: '-45deg' }] },
   pickerClear: { color: night.mutedDark, fontSize: 12, fontWeight: '600', marginTop: 18, textDecorationLine: 'underline' },
 
+  endOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(4,8,7,0.92)',
+    alignItems: 'center', justifyContent: 'center', padding: 24, zIndex: 60,
+  },
+  endPanel: {
+    alignSelf: 'stretch', backgroundColor: night.panel, borderWidth: 1.5, borderColor: night.goldBorderStrong,
+    borderRadius: 20, padding: 22, alignItems: 'center',
+  },
+  endWinnerLine: { color: night.gold, fontSize: 12, fontWeight: '700', letterSpacing: 2, marginTop: 5 },
   toast: {
     position: 'absolute', top: 60, alignSelf: 'center',
     backgroundColor: night.dangerBg, borderWidth: 1, borderColor: night.dangerBorder,

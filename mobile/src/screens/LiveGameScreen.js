@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal,
-  ActivityIndicator, Dimensions, Animated, Easing, Pressable,
+  ActivityIndicator, Dimensions, Animated, Easing, Pressable, Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import io from 'socket.io-client';
@@ -74,16 +74,23 @@ function PulseRing({ size }) {
   );
 }
 
-function Medallion({ name, initial, isTurn, bid, won }) {
+function Medallion({ name, initial, isTurn, isMe, order, bid, won }) {
   return (
     <View style={styles.medallion}>
       <View style={{ alignItems: 'center', justifyContent: 'center' }}>
         {isTurn && <PulseRing size={56} />}
-        <View style={[styles.medallionCircle, isTurn && styles.medallionTurn]}>
+        <View style={[styles.medallionCircle, isMe && styles.medallionMe, isTurn && styles.medallionTurn]}>
           <Text style={styles.medallionInitial}>{initial}</Text>
         </View>
+        {order != null && (
+          <View style={styles.orderBadge}>
+            <Text style={styles.orderBadgeText}>{order}</Text>
+          </View>
+        )}
       </View>
-      <Text style={[styles.medallionName, isTurn && { color: night.gold }]} numberOfLines={1}>{name}</Text>
+      <Text style={[styles.medallionName, isTurn && { color: night.gold }, isMe && !isTurn && { color: night.goldBright }]} numberOfLines={1}>
+        {name}{isMe ? ' (εσύ)' : ''}
+      </Text>
       <Text style={styles.medallionStats}>{bid ?? '—'} / {won ?? 0}</Text>
     </View>
   );
@@ -190,10 +197,9 @@ function TrickSweep({ trick, winner, winnerName, myIdx, opponentSlot }) {
     return () => clearTimeout(t);
   }, [sweep]);
 
-  const toMe = winner === myIdx;
   const slot = opponentSlot(winner);
-  const dx = toMe ? 0 : slot.x * 0.7;
-  const dy = toMe ? 320 : -300;
+  const dx = slot.x * 0.7;
+  const dy = -300;
 
   return (
     <View style={{ alignItems: 'center' }}>
@@ -251,7 +257,7 @@ function BidChip({ val, delay, selected, forbidden, enabled, onPick }) {
 
 export default function LiveGameScreen({ route, navigation }) {
   const { gameId } = route.params;
-  const { user, joinGame } = useAuth();
+  const { user, joinGame, completeActualGame } = useAuth();
 
   const [gameData, setGameData] = useState(null);
   const [actualState, setActualState] = useState(null);
@@ -264,6 +270,8 @@ export default function LiveGameScreen({ route, navigation }) {
   const [endDismissed, setEndDismissed] = useState(false);
   const [showScore, setShowScore] = useState(false);
   const [roundSummary, setRoundSummary] = useState(null); // { round, results } shown between rounds
+  const [welcome, setWelcome] = useState(null); // { draw, dealerIdx, step } opening ritual
+  const prevStartedRef = useRef(null);
   const prevRoundRef = useRef(null);
   const socketRef = useRef(null);
 
@@ -313,6 +321,26 @@ export default function LiveGameScreen({ route, navigation }) {
     }
   }, [gameId]);
 
+  const leaveTable = useCallback(() => {
+    if (socketRef.current?.connected) socketRef.current.emit('leave-game', { gameId });
+    navigation.goBack();
+  }, [gameId, navigation]);
+
+  const confirmExit = () => {
+    const buttons = [
+      { text: 'Ακύρωση', style: 'cancel' },
+      { text: 'Έξοδος', onPress: leaveTable },
+    ];
+    if (isHost && gameState.isGameStarted && !isCompleted) {
+      buttons.push({
+        text: 'Τερματισμός τραπεζιού',
+        style: 'destructive',
+        onPress: async () => { await completeActualGame(gameId); navigation.goBack(); },
+      });
+    }
+    Alert.alert('Έξοδος από το τραπέζι', 'Τι θέλεις να κάνεις;', buttons);
+  };
+
   // When a round finishes (server advanced to the next one), celebrate it:
   // show every player's result with halos + fireworks for the winners.
   const liveRoundIdx = actualState?.roundIdx;
@@ -345,6 +373,28 @@ export default function LiveGameScreen({ route, navigation }) {
     const t = setTimeout(() => setRoundSummary(null), 5200);
     return () => clearTimeout(t);
   }, [roundSummary]);
+
+  // Welcome ritual: when the game starts, reveal the ace draw card by card
+  const startedNow = gameData?.gameState?.isGameStarted === true;
+  const aceDraw = actualState?.aceDraw;
+  useEffect(() => {
+    const prev = prevStartedRef.current;
+    prevStartedRef.current = startedNow;
+    if (prev !== false || !startedNow || !aceDraw?.length) return;
+    setWelcome({ step: 0 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startedNow]);
+
+  useEffect(() => {
+    if (!welcome || !aceDraw?.length) return;
+    if (welcome.step < aceDraw.length) {
+      const t = setTimeout(() => setWelcome((w) => w && { step: w.step + 1 }), 650);
+      return () => clearTimeout(t);
+    }
+    const t = setTimeout(() => setWelcome(null), 3400);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [welcome]);
 
   // ---- Derived state ----
   const gameState = gameData?.gameState || {};
@@ -396,13 +446,14 @@ export default function LiveGameScreen({ route, navigation }) {
     return c;
   };
 
-  const opponents = players.map((p, idx) => ({ p, idx })).filter(({ idx }) => idx !== myIdx);
-  // x-offset of an opponent's medallion relative to screen center (for sweeps)
-  const opponentSlot = useCallback((playerIdx) => {
-    const o = opponents.findIndex(({ idx }) => idx === playerIdx);
+  // Seats shown in this round's play order, first player leftmost
+  const playOrder = Array(numPlayers).fill(0).map((_, i) => (firstPlayer + i) % numPlayers);
+  // x-offset of a seat's medallion relative to screen center (for sweeps)
+  const seatSlot = useCallback((playerIdx) => {
+    const o = playOrder.indexOf(playerIdx);
     if (o === -1) return { x: 0 };
-    return { x: (o - (opponents.length - 1) / 2) * 110 };
-  }, [opponents]);
+    return { x: (o - (numPlayers - 1) / 2) * 96 };
+  }, [playOrder.join(','), numPlayers]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---- Loading / error shells ----
   if (loading || !gameData) {
@@ -452,6 +503,19 @@ export default function LiveGameScreen({ route, navigation }) {
                 <Text style={styles.medallionStats}>
                   {p ? (p.userId === gameData.hostId ? 'HOST' : 'ΕΤΟΙΜΟΣ') : `${players.length}/${numPlayers}`}
                 </Text>
+                {isHost && p && idx > 0 && (
+                  <TouchableOpacity
+                    onPress={() => {
+                      const order = players.map((_, i) => i);
+                      [order[idx - 1], order[idx]] = [order[idx], order[idx - 1]];
+                      sendAction('set-seats', { order });
+                    }}
+                    style={styles.seatMove}
+                    hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                  >
+                    <Text style={styles.seatMoveText}>‹ πιο νωρίς</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             );
           })}
@@ -472,6 +536,7 @@ export default function LiveGameScreen({ route, navigation }) {
         ) : (
           <Text style={[styles.waitSub, { textAlign: 'center' }]}>Το παιχνίδι ξεκινά μόλις ο host δώσει το σύνθημα…</Text>
         )}
+        <GoldButton title="ΑΠΟΧΩΡΗΣΗ ΑΠΟ ΤΟ ΤΡΑΠΕΖΙ" outline onPress={leaveTable} style={{ marginTop: 10 }} />
       </View>
     </View>
   );
@@ -518,7 +583,7 @@ export default function LiveGameScreen({ route, navigation }) {
           winner={completedTrick.winner}
           winnerName={playerNames[completedTrick.winner]}
           myIdx={myIdx}
-          opponentSlot={opponentSlot}
+          opponentSlot={seatSlot}
         />
       );
     }
@@ -697,21 +762,31 @@ export default function LiveGameScreen({ route, navigation }) {
               <TouchableOpacity onPress={() => setShowScore(true)} activeOpacity={0.8}>
                 <NightChip label="Σκορ" />
               </TouchableOpacity>
+              <TouchableOpacity onPress={confirmExit} activeOpacity={0.8}>
+                <NightChip label="Έξοδος" />
+              </TouchableOpacity>
               <View style={[styles.connDot, { backgroundColor: connected ? '#4caf7d' : '#c0564c' }]} />
             </View>
 
-            <View style={styles.medallionRow}>
-              {opponents.map(({ p, idx }) => (
-                <Medallion
-                  key={idx}
-                  name={p.username}
-                  initial={p.username[0]?.toUpperCase()}
-                  isTurn={turn === idx && phase !== 'game-over'}
-                  bid={predictions[idx]}
-                  won={tricksWon[idx]}
-                />
-              ))}
-            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.medallionRow} style={{ flexGrow: 0 }}>
+              {playOrder.map((idx, orderPos) => {
+                const p = players[idx];
+                if (!p) return null;
+                return (
+                  <Medallion
+                    key={idx}
+                    name={p.username}
+                    initial={p.username[0]?.toUpperCase()}
+                    isTurn={turn === idx && phase !== 'game-over'}
+                    isMe={idx === myIdx}
+                    order={orderPos + 1}
+                    bid={predictions[idx]}
+                    won={tricksWon[idx]}
+                  />
+                );
+              })}
+            </ScrollView>
 
             <TableArc top={162} />
 
@@ -757,6 +832,35 @@ export default function LiveGameScreen({ route, navigation }) {
             {renderHand(phase === 'playing')}
           </View>
         )}
+
+        {/* welcome ritual: cards dealt around until the first ace picks the dealer */}
+        {welcome && aceDraw?.length ? (
+          <Pressable style={styles.roundOverlay} onPress={() => setWelcome(null)}>
+            <View style={styles.roundPanel}>
+              <Text style={styles.welcomeTitle}>Καλώς ήρθατε στο τραπέζι</Text>
+              <Text style={styles.roundOverlaySub}>ΜΟΙΡΑΖΟΥΜΕ ΜΕΧΡΙ ΤΟΝ ΠΡΩΤΟ ΑΣΣΟ</Text>
+              <View style={styles.aceRow}>
+                {aceDraw.slice(0, welcome.step).map((d, i) => (
+                  <View key={i} style={{ alignItems: 'center', margin: 3 }}>
+                    <CardView card={d.card} width={52} highlighted={d.card.value === 'A'} />
+                    <Text style={styles.aceName} numberOfLines={1}>{playerNames[d.playerIdx]}</Text>
+                  </View>
+                ))}
+              </View>
+              {welcome.step >= aceDraw.length && (
+                <View style={{ alignItems: 'center', marginTop: 14 }}>
+                  <Text style={styles.welcomeDealer}>
+                    Ο άσσος στον/στην {playerNames[actualState?.dealerIdx] || '—'} — μοιράζει!
+                  </Text>
+                  <Text style={styles.welcomeFirst}>
+                    Πρώτος παίζει ο/η {playerNames[(actualState?.dealerIdx + 1) % numPlayers] || '—'}
+                  </Text>
+                </View>
+              )}
+              <Text style={styles.roundOverlayHint}>άγγιξε για να ξεκινήσεις</Text>
+            </View>
+          </Pressable>
+        ) : null}
 
         {/* round-end celebration: winners with halos + fireworks */}
         {roundSummary && (
@@ -829,7 +933,7 @@ const styles = StyleSheet.create({
   chipTextGold: { color: night.gold, fontWeight: '700' },
   connDot: { width: 9, height: 9, borderRadius: 5, marginLeft: 'auto' },
 
-  medallionRow: { flexDirection: 'row', justifyContent: 'center', gap: 26, paddingTop: 14 },
+  medallionRow: { flexDirection: 'row', flexGrow: 1, justifyContent: 'center', gap: 18, paddingTop: 14, paddingHorizontal: 14 },
   medallion: { alignItems: 'center', width: 84 },
   medallionCircle: {
     width: 52, height: 52, borderRadius: 26,
@@ -842,6 +946,21 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   medallionInitial: { color: night.text, fontWeight: '700', fontSize: 20 },
+  medallionMe: { borderColor: night.goldBorderStrong },
+  orderBadge: {
+    position: 'absolute', top: -4, left: -4,
+    width: 19, height: 19, borderRadius: 10,
+    backgroundColor: night.goldDark, borderWidth: 1, borderColor: night.goldBright,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  orderBadgeText: { color: '#241A05', fontSize: 10, fontWeight: '800' },
+  seatMove: { marginTop: 4 },
+  seatMoveText: { color: night.gold, fontSize: 11, fontWeight: '700' },
+  welcomeTitle: { fontFamily: displayFont, color: night.text, fontSize: 27, textAlign: 'center' },
+  aceRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', marginTop: 22, maxWidth: 350 },
+  aceName: { color: night.muted, fontSize: 9.5, marginTop: 3, maxWidth: 54, textAlign: 'center' },
+  welcomeDealer: { fontFamily: displayFont, color: night.goldBright, fontSize: 19, textAlign: 'center' },
+  welcomeFirst: { color: night.text, fontSize: 14, fontWeight: '600', marginTop: 6, textAlign: 'center' },
   medallionName: { color: night.muted, fontSize: 11, fontWeight: '600', marginTop: 5 },
   medallionStats: { color: night.gold, fontSize: 11, fontWeight: '700', marginTop: 1 },
   slotEmpty: { borderStyle: 'dashed', backgroundColor: night.glassDim },

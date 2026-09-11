@@ -11,6 +11,7 @@ import LobbyScreen from './src/screens/LobbyScreen';
 import LiveGameScreen from './src/screens/LiveGameScreen';
 import ScoreGameScreen from './src/screens/ScoreGameScreen';
 import HistoryScreen from './src/screens/HistoryScreen';
+import HelpScreen from './src/screens/HelpScreen';
 import { colors, night } from './src/theme';
 
 const Stack = createNativeStackNavigator();
@@ -44,6 +45,7 @@ function AppContent() {
         <Stack.Screen name="LiveGame" component={LiveGameScreen} />
         <Stack.Screen name="ScoreGame" component={ScoreGameScreen} />
         <Stack.Screen name="History" component={HistoryScreen} />
+        <Stack.Screen name="Help" component={HelpScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

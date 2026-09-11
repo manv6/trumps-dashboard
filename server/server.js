@@ -136,6 +136,22 @@ function createShuffledDeck() {
 const cardRank = (card) => CARD_VALUES.indexOf(card.value);
 const sameCard = (a, b) => a && b && a.suit === b.suit && a.value === b.value;
 
+// Opening ritual: deal cards around the table until someone draws an ace.
+// That player becomes the dealer; the player to their left opens the game.
+function drawForDealer(numPlayers) {
+  const deck = createShuffledDeck();
+  const draw = [];
+  for (let i = 0; i < deck.length; i++) {
+    const playerIdx = i % numPlayers;
+    const card = deck[i];
+    draw.push({ playerIdx, card });
+    if (card.value === 'A') {
+      return { draw, dealerIdx: playerIdx };
+    }
+  }
+  return { draw, dealerIdx: numPlayers - 1 }; // unreachable with a real deck
+}
+
 // Deal a new round: hands, trump card, reset trick state, prediction phase
 function startActualRound(game) {
   const numPlayers = game.gameState.numPlayers;
@@ -147,7 +163,9 @@ function startActualRound(game) {
   );
   actualHands.set(game.gameId, hands);
 
-  const firstPlayer = roundIdx % numPlayers;
+  // First player sits left of the dealer and shifts each round
+  const dealer = Number.isInteger(game.dealerIdx) ? game.dealerIdx : numPlayers - 1;
+  const firstPlayer = (dealer + 1 + roundIdx) % numPlayers;
   game.actualState = {
     phase: 'predicting', // 'predicting' | 'playing' | 'game-over'
     roundIdx,
@@ -1072,8 +1090,8 @@ io.on('connection', (socket) => {
         case 'update-prediction':
           const { roundIdx, playerIdx, value } = payload;
           
-          // Security check: players can only update their own data
-          if (playerIdx !== playerIndex) {
+          // Players edit their own data; the HOST keeps the sheet for everyone
+          if (playerIdx !== playerIndex && game.hostId !== socket.userId) {
             socket.emit('error', 'You can only update your own predictions');
             return;
           }
@@ -1092,8 +1110,8 @@ io.on('connection', (socket) => {
         case 'update-tricks':
           const { roundIdx: rIdx, playerIdx: pIdx, value: val } = payload;
           
-          // Security check: players can only update their own data
-          if (pIdx !== playerIndex) {
+          // Players edit their own data; the HOST keeps the sheet for everyone
+          if (pIdx !== playerIndex && game.hostId !== socket.userId) {
             socket.emit('error', 'You can only update your own tricks');
             return;
           }
@@ -1202,6 +1220,28 @@ io.on('connection', (socket) => {
           }
           break;
           
+        case 'set-seats': {
+          // Host reorders the table (score mode: safe anytime — the score
+          // rows travel with their players)
+          if (game.hostId !== socket.userId) {
+            socket.emit('error', 'Only the host can change the seating');
+            return;
+          }
+          const order = payload && payload.order;
+          const n = game.players.length;
+          const valid = Array.isArray(order) && order.length === n &&
+            [...order].sort((a, b) => a - b).every((v, i) => v === i);
+          if (!valid) {
+            socket.emit('error', 'Invalid seating order');
+            return;
+          }
+          game.players = order.map(i => game.players[i]);
+          const rows = order.map(i => game.gameState.playerData[i]);
+          rows.forEach((row, i) => { game.gameState.playerData[i] = row; });
+          game.players.forEach((p, i) => { game.gameState.playerData[i].name = p.username; });
+          break;
+        }
+
         case 'reset-game':
           // Only host can reset game
           if (game.hostId !== socket.userId) {
@@ -1280,7 +1320,54 @@ io.on('connection', (socket) => {
           }
           game.gameState.isGameStarted = true;
           game.gameState.currentRound = 0;
+          const opening = drawForDealer(numPlayers);
+          game.dealerIdx = opening.dealerIdx;
+          game.aceDraw = opening.draw;
           startActualRound(game);
+          // carry the ritual into the public state for the welcome reveal
+          game.actualState.aceDraw = opening.draw;
+          game.actualState.dealerIdx = opening.dealerIdx;
+          break;
+        }
+
+        case 'set-seats': {
+          if (game.hostId !== socket.userId) {
+            socket.emit('error', 'Only the host can change the seating');
+            return;
+          }
+          if (game.mode === 'actual' && game.gameState.isGameStarted) {
+            socket.emit('error', 'Seats are locked once the game starts');
+            return;
+          }
+          const order = payload && payload.order;
+          const n = game.players.length;
+          const valid = Array.isArray(order) && order.length === n &&
+            [...order].sort((a, b) => a - b).every((v, i) => v === i);
+          if (!valid) {
+            socket.emit('error', 'Invalid seating order');
+            return;
+          }
+          game.players = order.map(i => game.players[i]);
+          const rows = order.map(i => game.gameState.playerData[i]);
+          rows.forEach((row, i) => { game.gameState.playerData[i] = row; });
+          game.players.forEach((p, i) => { game.gameState.playerData[i].name = p.username; });
+          break;
+        }
+
+        case 'shuffle-seats': {
+          if (game.hostId !== socket.userId) {
+            socket.emit('error', 'Only the host can shuffle seats');
+            return;
+          }
+          if (game.gameState.isGameStarted) {
+            socket.emit('error', 'Seats are locked once the game starts');
+            return;
+          }
+          for (let i = game.players.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [game.players[i], game.players[j]] = [game.players[j], game.players[i]];
+          }
+          game.players.forEach((p, i) => { game.gameState.playerData[i].name = p.username; });
           break;
         }
 
@@ -1384,6 +1471,55 @@ io.on('connection', (socket) => {
     } catch (error) {
       console.error('actual-action error:', error);
       socket.emit('error', 'Failed to process game action');
+    }
+  });
+
+  // Leave a table. Before the game starts the seat is freed (host passes on,
+  // an empty table is deleted). A started game just lets the socket go.
+  socket.on('leave-game', async (data) => {
+    const { gameId } = data || {};
+    try {
+      const game = activeGames.get(gameId);
+      if (!game) return;
+      const playerIndex = game.players.findIndex(p => p.userId === socket.userId);
+      if (playerIndex === -1) return;
+
+      socket.leave(gameId);
+
+      if (!game.gameState.isGameStarted && !game.gameState.isGameCompleted) {
+        game.players.splice(playerIndex, 1);
+        // the score row leaves with its player; pad the sheet back to size
+        game.gameState.playerData.splice(playerIndex, 1);
+        game.gameState.playerData.push({ name: '', predictions: [], tricks: [], points: [] });
+        game.gameState.playerData.forEach((pd, i) => {
+          pd.name = game.players[i] ? game.players[i].username : `Παίκτης ${i + 1}`;
+        });
+        if (game.players.length === 0) {
+          activeGames.delete(gameId);
+          if (useDatabase) {
+            try { await Game.deleteOne({ gameId }); } catch (e) { /* best effort */ }
+          }
+          return;
+        }
+        if (game.hostId === socket.userId) {
+          game.hostId = game.players[0].userId;
+        }
+        if (useDatabase) {
+          try {
+            await Game.findOneAndUpdate({ gameId }, {
+              players: game.players, gameState: game.gameState, hostId: game.hostId,
+            });
+          } catch (e) { /* best effort */ }
+        }
+        io.to(gameId).emit('game-state', game);
+      } else {
+        const player = game.players[playerIndex];
+        player.isConnected = false;
+        player.socketId = null;
+        io.to(gameId).emit('game-state', game);
+      }
+    } catch (e) {
+      console.error('leave-game error:', e.message);
     }
   });
 
